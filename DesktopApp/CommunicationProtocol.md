@@ -1,1 +1,0 @@
-Here all the messages incoming and outgoing to/from the `DesktopApp` will be described here.

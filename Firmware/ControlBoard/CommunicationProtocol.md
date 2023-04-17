@@ -1,1 +1,0 @@
-Here all the messages incoming and outgoing to/from the `ESP32` in the `Control Board` will be described here.

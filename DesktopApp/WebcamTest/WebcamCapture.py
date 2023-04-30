@@ -6,12 +6,12 @@ import threading
 
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QImage, QPixmap
-from PyQt5.QtWidgets import QLabel, QWidget, QHBoxLayout, QApplication
+from PyQt5.QtWidgets import QLabel, QWidget, QHBoxLayout, QApplication, QFrame
 
 
-class WebcamCapture(QWidget):
-    def __init__(self):
-        super().__init__()
+class WebcamCapture(QFrame):
+    def __init__(self, tab):
+        super().__init__(tab)
 
         self.running = True
 

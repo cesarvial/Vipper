@@ -9,7 +9,7 @@ from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtWidgets import QLabel, QWidget, QHBoxLayout, QApplication
 
 
-class VideoCapture(QWidget):
+class WebcamCapture(QWidget):
     def __init__(self):
         super().__init__()
 
@@ -91,6 +91,6 @@ class VideoCapture(QWidget):
 
 if __name__ == '__main__':
     app = QApplication([])
-    window = VideoCapture()
+    window = WebcamCapture()
     window.show()
     app.exec_()

@@ -10,6 +10,10 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from WebcamCapture import WebcamCapture
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg  
+import numpy as np  
+
 
 class VipperInterface(object):
     def setupUi(self, MainWindow):
@@ -91,11 +95,33 @@ class VipperInterface(object):
         self.title_gas_m = QtWidgets.QLabel(self.tab_mapping)
         self.title_gas_m.setGeometry(QtCore.QRect(520, 90, 131, 21))
         self.title_gas_m.setObjectName("title_gas_m")
+
+
+
+        self.mapping_fig = Figure()
+        self.mapping_canvas = FigureCanvasQTAgg(self.mapping_fig)
+        self.mapping_axes = self.mapping_fig.add_subplot(111, projection='3d')
+
+        # Mockup data
+        X = np.arange(-5, 5, 0.25)
+        Y = np.arange(-5, 5, 0.25)
+        X, Y = np.meshgrid(X, Y)
+        R = np.sqrt(X ** 2 + Y ** 2)
+        Z = np.sin(R)
+        self.mapping_axes.plot_surface(X, Y, Z)
+
+        self.plot_layout = QtWidgets.QVBoxLayout()
+        self.plot_layout.addWidget(self.mapping_canvas)    
+        
         self.mapping_frame = QtWidgets.QFrame(self.tab_mapping)
+        self.mapping_frame.setLayout(self.plot_layout)
         self.mapping_frame.setGeometry(QtCore.QRect(40, 40, 441, 271))
         self.mapping_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.mapping_frame.setFrameShadow(QtWidgets.QFrame.Raised)
         self.mapping_frame.setObjectName("mapping_frame")
+
+
+
         self.btn_forward_m.raise_()
         self.btn_backward_m.raise_()
         self.btn_microphone_m.raise_()

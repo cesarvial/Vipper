@@ -12,15 +12,15 @@ from mpl_toolkits.mplot3d import Axes3D
 # stopTime = 26
 # samplePeriod = 1/256
 
-#filePath = 'datasets/stairsAndCorridor'
-#startTime = 5
-#stopTime = 53
-#samplePeriod = 1/256
+filePath = 'datasets/stairsAndCorridor'
+startTime = 5
+stopTime = 53
+samplePeriod = 1/256
 
-filePath = 'datasets/spiralStairs'
-startTime = 1
-stopTime = 28.41
-samplePeriod = 1/100
+#filePath = 'datasets/spiralStairs'
+#startTime = 1
+#stopTime = 28.41
+#samplePeriod = 1/100
 
 
 def main():
@@ -59,30 +59,8 @@ def main():
     b, a = signal.butter(1, (2*filtCutOff)/(1/samplePeriod), 'lowpass')
     acc_magFilt = signal.filtfilt(b, a, acc_magFilt, padtype = 'odd', padlen=3*(max(len(b),len(a))-1))
 
-
     # Threshold detection
     stationary = acc_magFilt < 0.05
-
-    fig = plt.figure(figsize=(10, 5))
-    ax1 = fig.add_subplot(2,1,1)
-    ax2 = fig.add_subplot(2,1,2)
-    ax1.plot(time,gyrX,c='r',linewidth=0.5)
-    ax1.plot(time,gyrY,c='g',linewidth=0.5)
-    ax1.plot(time,gyrZ,c='b',linewidth=0.5)
-    ax1.set_title("gyroscope")
-    ax1.set_xlabel("time (s)")
-    ax1.set_ylabel("angular velocity (degrees/s)")
-    ax1.legend(["x","y","z"])
-    ax2.plot(time,accX,c='r',linewidth=0.5)
-    ax2.plot(time,accY,c='g',linewidth=0.5)
-    ax2.plot(time,accZ,c='b',linewidth=0.5)
-    ax2.plot(time,acc_magFilt,c='k',linestyle=":",linewidth=1)
-    ax2.plot(time,stationary,c='k')
-    ax2.set_title("accelerometer")
-    ax2.set_xlabel("time (s)")
-    ax2.set_ylabel("acceleration (g)")
-    ax2.legend(["x","y","z"])
-    plt.show(block=False)
 
     # Compute orientation
     quat  = np.zeros((time.size, 4), dtype=np.float64)
@@ -128,43 +106,11 @@ def main():
         if stationary[t] == True:
             vel[t,:] = np.zeros(3)
 
-    # Compute integral drift during non-stationary periods
-    velDrift = np.zeros(vel.shape)
-    stationaryStart = np.where(np.diff(stationary.astype(int)) == -1)[0]+1
-    stationaryEnd = np.where(np.diff(stationary.astype(int)) == 1)[0]+1
-    for i in range(0,stationaryEnd.shape[0]):
-        driftRate = vel[stationaryEnd[i]-1,:] / (stationaryEnd[i] - stationaryStart[i])
-        enum = np.arange(0,stationaryEnd[i]-stationaryStart[i])
-        drift = np.array([enum*driftRate[0], enum*driftRate[1], enum*driftRate[2]]).T
-        velDrift[stationaryStart[i]:stationaryEnd[i],:] = drift
-
-    # Remove integral drift
-    vel = vel - velDrift
-    fig = plt.figure(figsize=(10, 5))
-    plt.plot(time,vel[:,0],c='r',linewidth=0.5)
-    plt.plot(time,vel[:,1],c='g',linewidth=0.5)
-    plt.plot(time,vel[:,2],c='b',linewidth=0.5)
-    plt.legend(["x","y","z"])
-    plt.title("velocity")
-    plt.xlabel("time (s)")
-    plt.ylabel("velocity (m/s)")
-    plt.show(block=False)
-
     # -------------------------------------------------------------------------
     # Compute translational position
     pos = np.zeros(vel.shape)
     for t in range(1,pos.shape[0]):
         pos[t,:] = pos[t-1,:] + vel[t,:]*samplePeriod
-
-    fig = plt.figure(figsize=(10, 5))
-    plt.plot(time,pos[:,0],c='r',linewidth=0.5)
-    plt.plot(time,pos[:,1],c='g',linewidth=0.5)
-    plt.plot(time,pos[:,2],c='b',linewidth=0.5)
-    plt.legend(["x","y","z"])
-    plt.title("position")
-    plt.xlabel("time (s)")
-    plt.ylabel("position (m)")
-    plt.show(block=False)
 
     # -------------------------------------------------------------------------
     # Plot 3D foot trajectory

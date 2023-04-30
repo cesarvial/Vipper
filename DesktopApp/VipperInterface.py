@@ -13,9 +13,19 @@ from WebcamCapture import WebcamCapture
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg  
 import numpy as np  
-
+import random
+import time
 
 class VipperInterface(object):
+    def __init__(self):
+        self.temperature = 20
+        self.dangerous_gas = False
+        # Acceleration order x y z
+        self.acc_data = [0, 0, 0]
+        # Gyroscope order x y z
+        self.gyro_data = [0, 0, 0]
+        self.muted = True
+
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(800, 396)
@@ -120,8 +130,6 @@ class VipperInterface(object):
         self.mapping_frame.setFrameShadow(QtWidgets.QFrame.Raised)
         self.mapping_frame.setObjectName("mapping_frame")
 
-
-
         self.btn_forward_m.raise_()
         self.btn_backward_m.raise_()
         self.btn_microphone_m.raise_()
@@ -163,19 +171,19 @@ class VipperInterface(object):
         self.btn_backward.setText(_translate("MainWindow", "Backward"))
         self.btn_backward.setShortcut(_translate("MainWindow", "Down"))
         self.title_temp.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:12pt; font-weight:600;\">Temp ºC</span></p></body></html>"))
-        self.btn_microphone.setText(_translate("MainWindow", "🎙"))
+        self.btn_microphone.setText(_translate("MainWindow", "Unmute"))
         self.btn_microphone.setShortcut(_translate("MainWindow", "Space"))
         self.title_gas.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:12pt; font-weight:600;\">Dangerous Gas</span></p></body></html>"))
         self.info_temp.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:11pt; color:#1f1f55;\">20º</span></p></body></html>"))
-        self.info_gas.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:10pt; color:#ff0000;\">detected</span></p></body></html>"))
+        self.info_gas.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:10pt; color:#ff0000;\">Detected</span></p></body></html>"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_webcam), _translate("MainWindow", "Camera"))
         self.btn_forward_m.setText(_translate("MainWindow", "Forward"))
         self.btn_forward_m.setShortcut(_translate("MainWindow", "Up"))
         self.btn_backward_m.setText(_translate("MainWindow", "Backward"))
         self.btn_backward_m.setShortcut(_translate("MainWindow", "Down"))
-        self.btn_microphone_m.setText(_translate("MainWindow", "🎙"))
+        self.btn_microphone_m.setText(_translate("MainWindow", "Unmute"))
         self.btn_microphone_m.setShortcut(_translate("MainWindow", "Space"))
-        self.info_gas_m.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:10pt; color:#ff0000;\">detected</span></p></body></html>"))
+        self.info_gas_m.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:10pt; color:#ff0000;\">Not Detected</span></p></body></html>"))
         self.info_temp_m.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:11pt; color:#1f1f55;\">20º</span></p></body></html>"))
         self.title_temp_m.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:12pt; font-weight:600;\">Temp ºC</span></p></body></html>"))
         self.title_gas_m.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:12pt; font-weight:600;\">Dangerous Gas</span></p></body></html>"))
@@ -183,3 +191,35 @@ class VipperInterface(object):
         self.menuMenu.setTitle(_translate("MainWindow", "Menu"))
         self.actionSettings.setText(_translate("MainWindow", "Settings"))
         self.actionExit.setText(_translate("MainWindow", "Exit"))
+
+    
+    def update_data(self):
+        _translate = QtCore.QCoreApplication.translate
+        while(1):
+            if self.muted:
+                # get temperature
+                self.temperature += random.random()
+                # get gas
+                self.dangerous_gas = bool(random.randrange(0, 1))
+                # get acc
+                self.acc_data = [random.random(), random.random(), random.random()]
+                # get gyro
+                self.gyro_data = [random.random(), random.random(), random.random()]
+
+                # update temperature
+                temp_string = "<html><head/><body><p><span style=\" font-size:11pt; color:#1f1f55;\">" + str(self.temperature)[0:6] + "º</span></p></body></html>"
+                self.info_temp.setText(_translate("MainWindow", temp_string))
+                self.info_temp_m.setText(_translate("MainWindow", temp_string))
+                # update dangerous gas
+                if self.dangerous_gas:
+                    color = "ff0000"
+                    gas = "Detected"
+                else:
+                    color = "00ff00"
+                    gas = "Not detected"
+                gas_string = "<html><head/><body><p><span style=\" font-size:10pt; color:#" + color + ";\">" + gas + "Not Detected</span></p></body></html>"
+                self.info_gas.setText(_translate("MainWindow", gas_string))
+                self.info_gas_m.setText(_translate("MainWindow", gas_string))
+                time.sleep(0.1)
+            else:
+                print("Sending message")

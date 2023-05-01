@@ -202,6 +202,8 @@ class VipperInterface(object):
     def update_data(self):
         _translate = QtCore.QCoreApplication.translate
         i = 0
+        y_m = 0
+        z_m = 0
         while(1):
             if self.muted:
                 # get temperature
@@ -212,16 +214,21 @@ class VipperInterface(object):
                 # get gas
                 self.dangerous_gas = bool(random.getrandbits(1))
                 # get acc
-                self.acc_data = [random.random(), random.random(), random.random()]
-                # get gyro
-                self.gyro_data = [random.random(), random.random(), random.random()]
-
+                # self.acc_data = [random.random(), random.random(), random.random()]
+                # get gyro data
+                # TODO: make it actually work. For now just random stuff
+                if (random.random() > 0.95):
+                    y_m = random.random()
+                    self.gyro_data = [0, y_m, 0]
+                if (random.random() < 0.05):
+                    z_m = random.random()
+                    self.gyro_data = [0, 0, z_m]
                 # updte position
                 # It will start by going on X's direction, then with gyro data ir will turn
                 if self.going_forward:
                     self.x_pos.append(i)
-                    self.y_pos.append(0)
-                    self.z_pos.append(0)
+                    self.y_pos.append(i*y_m)
+                    self.z_pos.append(i*z_m)
                     i += 0.01
                 elif self.going_backward and len(self.x_pos) > 1:
                     self.x_pos.pop()

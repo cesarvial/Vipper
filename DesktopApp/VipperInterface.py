@@ -25,45 +25,51 @@ class VipperInterface(object):
         # Gyroscope order x y z
         self.gyro_data = [0, 0, 0]
         self.muted = True
+        self.going_forward = False
+        self.going_backward = False
 
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(800, 396)
+        MainWindow.resize(1000, 600)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.tabWidget = QtWidgets.QTabWidget(self.centralwidget)
-        self.tabWidget.setGeometry(QtCore.QRect(0, 0, 801, 371))
+        self.tabWidget.setGeometry(QtCore.QRect(0, 0, 1000, 600))
         self.tabWidget.setObjectName("tabWidget")
         self.tab_webcam = QtWidgets.QWidget()
         self.tab_webcam.setObjectName("tab_webcam")
+        self.tab_webcam.setGeometry(QtCore.QRect(0, 0, 1000, 600))
         self.btn_forward = QtWidgets.QPushButton(self.tab_webcam)
-        self.btn_forward.setGeometry(QtCore.QRect(510, 230, 91, 31))
+        self.btn_forward.setGeometry(QtCore.QRect(700, 230, 91, 31))
         self.btn_forward.setObjectName("btn_forward")
+        self.btn_forward.clicked.connect(self.go_forward)
         self.btn_backward = QtWidgets.QPushButton(self.tab_webcam)
-        self.btn_backward.setGeometry(QtCore.QRect(510, 270, 91, 31))
+        self.btn_backward.setGeometry(QtCore.QRect(700, 270, 91, 31))
         self.btn_backward.setObjectName("btn_backward")
+        self.btn_backward.clicked.connect(self.go_backward)
         self.title_temp = QtWidgets.QLabel(self.tab_webcam)
-        self.title_temp.setGeometry(QtCore.QRect(520, 40, 111, 21))
+        self.title_temp.setGeometry(QtCore.QRect(700, 40, 111, 21))
         self.title_temp.setObjectName("title_temp")
         self.btn_microphone = QtWidgets.QPushButton(self.tab_webcam)
-        self.btn_microphone.setGeometry(QtCore.QRect(630, 230, 131, 71))
+        self.btn_microphone.setGeometry(QtCore.QRect(800, 230, 131, 71))
         self.btn_microphone.setCursor(QtGui.QCursor(QtCore.Qt.ArrowCursor))
         self.btn_microphone.setIconSize(QtCore.QSize(16, 16))
         self.btn_microphone.setObjectName("btn_microphone")
+        self.btn_microphone.clicked.connect(self.mute_mic)
         self.vipper_info_box = QtWidgets.QListView(self.tab_webcam)
-        self.vipper_info_box.setGeometry(QtCore.QRect(510, 31, 251, 181))
+        self.vipper_info_box.setGeometry(QtCore.QRect(700, 31, 251, 181))
         self.vipper_info_box.setObjectName("vipper_info_box")
         self.title_gas = QtWidgets.QLabel(self.tab_webcam)
-        self.title_gas.setGeometry(QtCore.QRect(520, 90, 131, 21))
+        self.title_gas.setGeometry(QtCore.QRect(700, 90, 131, 21))
         self.title_gas.setObjectName("title_gas")
         self.info_temp = QtWidgets.QLabel(self.tab_webcam)
-        self.info_temp.setGeometry(QtCore.QRect(520, 60, 71, 21))
+        self.info_temp.setGeometry(QtCore.QRect(700, 60, 71, 21))
         self.info_temp.setObjectName("info_temp")
         self.info_gas = QtWidgets.QLabel(self.tab_webcam)
-        self.info_gas.setGeometry(QtCore.QRect(520, 110, 71, 21))
+        self.info_gas.setGeometry(QtCore.QRect(700, 110, 71, 21))
         self.info_gas.setObjectName("info_gas")
         self.webcam_frame = WebcamCapture(self.tab_webcam)
-        self.webcam_frame.setGeometry(QtCore.QRect(30, 30, 441, 271))
+        self.webcam_frame.setGeometry(QtCore.QRect(30, 30, 640, 480))
         self.webcam_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.webcam_frame.setFrameShadow(QtWidgets.QFrame.Raised)
         self.webcam_frame.setObjectName("webcam_frame")
@@ -79,31 +85,35 @@ class VipperInterface(object):
         self.tabWidget.addTab(self.tab_webcam, "")
         self.tab_mapping = QtWidgets.QWidget()
         self.tab_mapping.setObjectName("tab_mapping")
+        self.tab_mapping.setGeometry(QtCore.QRect(0, 0, 1000, 600))
         self.btn_forward_m = QtWidgets.QPushButton(self.tab_mapping)
-        self.btn_forward_m.setGeometry(QtCore.QRect(510, 230, 91, 31))
+        self.btn_forward_m.setGeometry(QtCore.QRect(700, 230, 91, 31))
         self.btn_forward_m.setObjectName("btn_forward_m")
+        self.btn_forward_m.clicked.connect(self.go_forward)
         self.btn_backward_m = QtWidgets.QPushButton(self.tab_mapping)
-        self.btn_backward_m.setGeometry(QtCore.QRect(510, 270, 91, 31))
+        self.btn_backward_m.setGeometry(QtCore.QRect(700, 270, 91, 31))
         self.btn_backward_m.setObjectName("btn_backward_m")
+        self.btn_backward_m.clicked.connect(self.go_backward)
         self.btn_microphone_m = QtWidgets.QPushButton(self.tab_mapping)
-        self.btn_microphone_m.setGeometry(QtCore.QRect(630, 230, 131, 71))
+        self.btn_microphone_m.setGeometry(QtCore.QRect(800, 230, 131, 71))
         self.btn_microphone_m.setCursor(QtGui.QCursor(QtCore.Qt.ArrowCursor))
         self.btn_microphone_m.setIconSize(QtCore.QSize(16, 16))
         self.btn_microphone_m.setObjectName("btn_microphone_m")
+        self.btn_microphone_m.clicked.connect(self.mute_mic)
         self.vipper_info_box_m = QtWidgets.QListView(self.tab_mapping)
-        self.vipper_info_box_m.setGeometry(QtCore.QRect(510, 31, 251, 181))
+        self.vipper_info_box_m.setGeometry(QtCore.QRect(700, 31, 251, 181))
         self.vipper_info_box_m.setObjectName("vipper_info_box_m")
         self.info_gas_m = QtWidgets.QLabel(self.tab_mapping)
-        self.info_gas_m.setGeometry(QtCore.QRect(520, 110, 71, 21))
+        self.info_gas_m.setGeometry(QtCore.QRect(700, 110, 71, 21))
         self.info_gas_m.setObjectName("info_gas_m")
         self.info_temp_m = QtWidgets.QLabel(self.tab_mapping)
-        self.info_temp_m.setGeometry(QtCore.QRect(520, 60, 71, 21))
+        self.info_temp_m.setGeometry(QtCore.QRect(700, 60, 71, 21))
         self.info_temp_m.setObjectName("info_temp_m")
         self.title_temp_m = QtWidgets.QLabel(self.tab_mapping)
-        self.title_temp_m.setGeometry(QtCore.QRect(520, 40, 111, 21))
+        self.title_temp_m.setGeometry(QtCore.QRect(700, 40, 111, 21))
         self.title_temp_m.setObjectName("title_temp_m")
         self.title_gas_m = QtWidgets.QLabel(self.tab_mapping)
-        self.title_gas_m.setGeometry(QtCore.QRect(520, 90, 131, 21))
+        self.title_gas_m.setGeometry(QtCore.QRect(700, 90, 131, 21))
         self.title_gas_m.setObjectName("title_gas_m")
 
 
@@ -125,7 +135,7 @@ class VipperInterface(object):
         
         self.mapping_frame = QtWidgets.QFrame(self.tab_mapping)
         self.mapping_frame.setLayout(self.plot_layout)
-        self.mapping_frame.setGeometry(QtCore.QRect(40, 40, 441, 271))
+        self.mapping_frame.setGeometry(QtCore.QRect(30, 30, 640, 480))
         self.mapping_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.mapping_frame.setFrameShadow(QtWidgets.QFrame.Raised)
         self.mapping_frame.setObjectName("mapping_frame")
@@ -198,9 +208,12 @@ class VipperInterface(object):
         while(1):
             if self.muted:
                 # get temperature
-                self.temperature += random.random()
+                if self.dangerous_gas:
+                    self.temperature += random.random()
+                else:
+                    self.temperature -= random.random()
                 # get gas
-                self.dangerous_gas = bool(random.randrange(0, 1))
+                self.dangerous_gas = bool(random.getrandbits(1))
                 # get acc
                 self.acc_data = [random.random(), random.random(), random.random()]
                 # get gyro
@@ -217,9 +230,64 @@ class VipperInterface(object):
                 else:
                     color = "00ff00"
                     gas = "Not detected"
-                gas_string = "<html><head/><body><p><span style=\" font-size:10pt; color:#" + color + ";\">" + gas + "Not Detected</span></p></body></html>"
+                gas_string = "<html><head/><body><p><span style=\" font-size:10pt; color:#" + color + ";\">" + gas + "</span></p></body></html>"
                 self.info_gas.setText(_translate("MainWindow", gas_string))
                 self.info_gas_m.setText(_translate("MainWindow", gas_string))
                 time.sleep(0.1)
             else:
-                print("Sending message")
+                self.webcam_frame.capture_message()
+
+
+    def go_forward(self):
+        _translate = QtCore.QCoreApplication.translate
+        # If it was going back, change text to backward again
+        if self.going_backward:
+            self.going_backward = False
+            self.btn_backward.setText(_translate("MainWindow", "Backward"))
+            self.btn_backward_m.setText(_translate("MainWindow", "Backward"))
+        # If it was going forward, change text to go forward again, and stop
+        if self.going_forward:
+            self.going_forward = False
+            self.btn_forward.setText(_translate("MainWindow", "Forward"))
+            self.btn_forward_m.setText(_translate("MainWindow", "Forward"))
+            print("Stop from going forward")
+        # If it was stopped, go forward
+        else:
+            self.going_forward = True
+            self.btn_forward.setText(_translate("MainWindow", "Stop"))
+            self.btn_forward_m.setText(_translate("MainWindow", "Stop"))
+            print("Started to go forward")
+        
+
+
+    def go_backward(self):
+        _translate = QtCore.QCoreApplication.translate
+        # If it was going back, change text to backward again
+        if self.going_forward:
+            self.going_forward = False
+            self.btn_forward.setText(_translate("MainWindow", "Forward"))
+            self.btn_forward_m.setText(_translate("MainWindow", "Forward"))
+        # If it was going forward, change text to go forward again, and stop
+        if self.going_backward:
+            self.going_backward = False
+            self.btn_backward.setText(_translate("MainWindow", "Backward"))
+            self.btn_backward_m.setText(_translate("MainWindow", "Backward"))
+            print("Stop from going backward")
+        # If it was stopped, go forward
+        else:
+            self.going_backward = True
+            self.btn_backward.setText(_translate("MainWindow", "Stop"))
+            self.btn_backward_m.setText(_translate("MainWindow", "Stop"))
+            print("Started to go backward")
+
+
+    def mute_mic(self):
+        _translate = QtCore.QCoreApplication.translate
+        if self.muted:
+            self.muted = False
+            self.btn_microphone.setText(_translate("MainWindow", "Mute"))
+            self.btn_microphone_m.setText(_translate("MainWindow", "Mute"))
+        else: 
+            self.muted = True
+            self.btn_microphone.setText(_translate("MainWindow", "Unmute"))
+            self.btn_microphone_m.setText(_translate("MainWindow", "Unmute"))

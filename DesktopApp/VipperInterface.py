@@ -24,6 +24,10 @@ class VipperInterface(object):
         self.acc_data = [0, 0, 0]
         # Gyroscope order x y z
         self.gyro_data = [0, 0, 0]
+        # position based on both data
+        self.x_pos = [0]
+        self.y_pos = [0]
+        self.z_pos = [0]
         self.muted = True
         self.going_forward = False
         self.going_backward = False
@@ -115,31 +119,22 @@ class VipperInterface(object):
         self.title_gas_m = QtWidgets.QLabel(self.tab_mapping)
         self.title_gas_m.setGeometry(QtCore.QRect(700, 90, 131, 21))
         self.title_gas_m.setObjectName("title_gas_m")
-
-
-
+        # Plotting 
         self.mapping_fig = Figure()
         self.mapping_canvas = FigureCanvasQTAgg(self.mapping_fig)
-        self.mapping_axes = self.mapping_fig.add_subplot(111, projection='3d')
-
-        # Mockup data
-        X = np.arange(-5, 5, 0.25)
-        Y = np.arange(-5, 5, 0.25)
-        X, Y = np.meshgrid(X, Y)
-        R = np.sqrt(X ** 2 + Y ** 2)
-        Z = np.sin(R)
-        self.mapping_axes.plot_surface(X, Y, Z)
-
+        self.mapping_axes = self.mapping_fig.add_subplot(projection='3d')
         self.plot_layout = QtWidgets.QVBoxLayout()
         self.plot_layout.addWidget(self.mapping_canvas)    
-        
         self.mapping_frame = QtWidgets.QFrame(self.tab_mapping)
         self.mapping_frame.setLayout(self.plot_layout)
-        self.mapping_frame.setGeometry(QtCore.QRect(30, 30, 640, 480))
+        self.mapping_frame.setGeometry(QtCore.QRect(30, 30, 650, 490))
         self.mapping_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.mapping_frame.setFrameShadow(QtWidgets.QFrame.Raised)
         self.mapping_frame.setObjectName("mapping_frame")
 
+        self.mapping_label = QtWidgets.QLabel(self.tab_mapping)
+        self.mapping_label.setGeometry(QtCore.QRect(285, 15, 130, 30))
+        self.mapping_label.setObjectName("mapping_label")
         self.btn_forward_m.raise_()
         self.btn_backward_m.raise_()
         self.btn_microphone_m.raise_()
@@ -201,10 +196,12 @@ class VipperInterface(object):
         self.menuMenu.setTitle(_translate("MainWindow", "Menu"))
         self.actionSettings.setText(_translate("MainWindow", "Settings"))
         self.actionExit.setText(_translate("MainWindow", "Exit"))
+        self.mapping_label.setText(_translate("MainWindow", "3D mapping, try moving it!"))
 
     
     def update_data(self):
         _translate = QtCore.QCoreApplication.translate
+        i = 0
         while(1):
             if self.muted:
                 # get temperature
@@ -218,6 +215,21 @@ class VipperInterface(object):
                 self.acc_data = [random.random(), random.random(), random.random()]
                 # get gyro
                 self.gyro_data = [random.random(), random.random(), random.random()]
+
+                # updte position
+                # It will start by going on X's direction, then with gyro data ir will turn
+                if self.going_forward:
+                    self.x_pos.append(i)
+                    self.y_pos.append(0)
+                    self.z_pos.append(0)
+                    i += 0.01
+                elif self.going_backward and len(self.x_pos) > 1:
+                    self.x_pos.pop()
+                    self.y_pos.pop()
+                    self.z_pos.pop()
+                    i -= 0.01
+                # update mapping plot
+                self.update_mapping_plot()
 
                 # update temperature
                 temp_string = "<html><head/><body><p><span style=\" font-size:11pt; color:#1f1f55;\">" + str(self.temperature)[0:6] + "º</span></p></body></html>"
@@ -291,3 +303,12 @@ class VipperInterface(object):
             self.muted = True
             self.btn_microphone.setText(_translate("MainWindow", "Unmute"))
             self.btn_microphone_m.setText(_translate("MainWindow", "Unmute"))
+
+
+    def update_mapping_plot(self):
+        self.mapping_axes.clear()
+        self.mapping_axes.set_xlabel("x")
+        self.mapping_axes.set_ylabel("y")
+        self.mapping_axes.set_zlabel("z")
+        self.mapping_axes.plot(self.x_pos, self.y_pos, self.z_pos, 'green')
+        self.mapping_canvas.draw()

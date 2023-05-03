@@ -103,7 +103,6 @@ class VipperInterface(object):
         self.btn_microphone_m.setCursor(QtGui.QCursor(QtCore.Qt.ArrowCursor))
         self.btn_microphone_m.setIconSize(QtCore.QSize(16, 16))
         self.btn_microphone_m.setObjectName("btn_microphone_m")
-        self.btn_microphone_m.clicked.connect(self.mute_mic)
         self.vipper_info_box_m = QtWidgets.QListView(self.tab_mapping)
         self.vipper_info_box_m.setGeometry(QtCore.QRect(700, 31, 251, 181))
         self.vipper_info_box_m.setObjectName("vipper_info_box_m")
@@ -133,7 +132,7 @@ class VipperInterface(object):
         self.mapping_frame.setObjectName("mapping_frame")
 
         self.mapping_label = QtWidgets.QLabel(self.tab_mapping)
-        self.mapping_label.setGeometry(QtCore.QRect(285, 15, 130, 30))
+        self.mapping_label.setGeometry(QtCore.QRect(220, 15, 240, 30))
         self.mapping_label.setObjectName("mapping_label")
         self.btn_forward_m.raise_()
         self.btn_backward_m.raise_()
@@ -146,12 +145,6 @@ class VipperInterface(object):
         self.mapping_frame.raise_()
         self.tabWidget.addTab(self.tab_mapping, "")
         MainWindow.setCentralWidget(self.centralwidget)
-        self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 800, 21))
-        self.menubar.setObjectName("menubar")
-        self.menuMenu = QtWidgets.QMenu(self.menubar)
-        self.menuMenu.setObjectName("menuMenu")
-        MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
         MainWindow.setStatusBar(self.statusbar)
@@ -159,9 +152,6 @@ class VipperInterface(object):
         self.actionSettings.setObjectName("actionSettings")
         self.actionExit = QtWidgets.QAction(MainWindow)
         self.actionExit.setObjectName("actionExit")
-        self.menuMenu.addAction(self.actionSettings)
-        self.menuMenu.addAction(self.actionExit)
-        self.menubar.addAction(self.menuMenu.menuAction())
 
         self.webcam_frame.start_audio_stream()
         self.retranslateUi(MainWindow)
@@ -188,15 +178,15 @@ class VipperInterface(object):
         self.btn_backward_m.setShortcut(_translate("MainWindow", "Down"))
         self.btn_microphone_m.setText(_translate("MainWindow", "Unmute"))
         self.btn_microphone_m.setShortcut(_translate("MainWindow", "Space"))
+        self.btn_microphone_m.setDisabled(True)
         self.info_gas_m.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:10pt; color:#ff0000;\">Not Detected</span></p></body></html>"))
         self.info_temp_m.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:11pt; color:#1f1f55;\">20º</span></p></body></html>"))
         self.title_temp_m.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:12pt; font-weight:600;\">Temp ºC</span></p></body></html>"))
         self.title_gas_m.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:12pt; font-weight:600;\">Dangerous Gas</span></p></body></html>"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_mapping), _translate("MainWindow", "Mapping"))
-        self.menuMenu.setTitle(_translate("MainWindow", "Menu"))
         self.actionSettings.setText(_translate("MainWindow", "Settings"))
         self.actionExit.setText(_translate("MainWindow", "Exit"))
-        self.mapping_label.setText(_translate("MainWindow", "3D mapping, try moving it!"))
+        self.mapping_label.setText(_translate("MainWindow", "Left button to move, right button to Zoom in/out."))
 
     
     def update_data(self):
@@ -206,6 +196,7 @@ class VipperInterface(object):
         z_m = 0
         while(1):
             if self.muted:
+                self.tab_mapping.setDisabled(False)
                 # get temperature
                 if self.dangerous_gas:
                     self.temperature += random.random()
@@ -303,19 +294,37 @@ class VipperInterface(object):
     def mute_mic(self):
         _translate = QtCore.QCoreApplication.translate
         if self.muted:
+            if self.going_backward:
+                self.going_backward = False
+                self.btn_backward.setText(_translate("MainWindow", "Backward"))
+                self.btn_backward_m.setText(_translate("MainWindow", "Backward"))
+            elif self.going_forward:
+                self.going_forward = False
+                self.btn_forward.setText(_translate("MainWindow", "Forward"))
+                self.btn_forward_m.setText(_translate("MainWindow", "Forward"))
             self.muted = False
             self.btn_microphone.setText(_translate("MainWindow", "Mute"))
             self.btn_microphone_m.setText(_translate("MainWindow", "Mute"))
+            self.btn_backward.setDisabled(True)
+            self.btn_backward_m.setDisabled(True)
+            self.btn_forward.setDisabled(True)
+            self.btn_forward_m.setDisabled(True)
+            self.tabWidget.tabBar().setDisabled(True)
         else: 
             self.muted = True
             self.btn_microphone.setText(_translate("MainWindow", "Unmute"))
             self.btn_microphone_m.setText(_translate("MainWindow", "Unmute"))
+            self.btn_backward.setDisabled(False)
+            self.btn_backward_m.setDisabled(False)
+            self.btn_forward.setDisabled(False)
+            self.btn_forward_m.setDisabled(False)
+            self.tabWidget.tabBar().setDisabled(False)
 
 
     def update_mapping_plot(self):
         self.mapping_axes.clear()
-        self.mapping_axes.set_xlabel("x")
-        self.mapping_axes.set_ylabel("y")
-        self.mapping_axes.set_zlabel("z")
+        self.mapping_axes.set_xlabel("x (m)")
+        self.mapping_axes.set_ylabel("y (m)")
+        self.mapping_axes.set_zlabel("z (m)")
         self.mapping_axes.plot(self.x_pos, self.y_pos, self.z_pos, 'green')
         self.mapping_canvas.draw()

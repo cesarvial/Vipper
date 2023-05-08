@@ -97,7 +97,8 @@ class WebcamCapture(QFrame):
         data = self.msg_input_stream.read(self.frames_per_buffer, exception_on_overflow = False)
         data = np.frombuffer(data, dtype=np.float32)
         # Send data
-        print(data.tobytes())
+        print(len(data.tobytes()))
+        return data.tobytes()
 
 
     def closeEvent(self, event):

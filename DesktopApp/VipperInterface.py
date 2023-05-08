@@ -15,6 +15,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 import numpy as np  
 import random
 import time
+import socket
 
 class VipperInterface(object):
     def __init__(self):
@@ -31,6 +32,21 @@ class VipperInterface(object):
         self.muted = True
         self.going_forward = False
         self.going_backward = False
+
+        # Sockets for control and sensor boards
+        self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.control_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.control_socket.bind((socket.gethostname(), 8080))
+        self.control_socket.listen(1)
+        self.control_conn, control_addr = self.control_socket.accept()
+        print("accepted control_conn: " + str(control_addr))
+
+        self.sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sensor_socket.bind((socket.gethostname(), 8081))
+        self.sensor_socket.listen(1)
+        self.sensor_conn, sensor_addr = self.sensor_socket.accept()
+        print("accepted sensor_conn: " + str(sensor_addr))
 
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
@@ -194,11 +210,12 @@ class VipperInterface(object):
         i = 0
         y_m = 0
         z_m = 0
+        sensor_data = None
         while(1):
             if self.muted:
                 self.tab_mapping.setDisabled(False)
-                # get temperature
-                if self.dangerous_gas:
+                # Random data
+                '''if self.dangerous_gas:
                     self.temperature += random.random()
                 else:
                     self.temperature -= random.random()
@@ -213,7 +230,20 @@ class VipperInterface(object):
                     self.gyro_data = [0, y_m, 0]
                 if (random.random() < 0.05):
                     z_m = random.random()
-                    self.gyro_data = [0, 0, z_m]
+                    self.gyro_data = [0, 0, z_m]'''
+                # Actual data
+                # 9 Bytes 
+                try:
+                    self.sensor_conn.settimeout(3)
+                    sensor_data = self.sensor_conn.recv(9)
+                except:
+                    print("No sensor information received")
+                print(sensor_data)
+                # gas/movement - byte 0
+                # x_gyro - bytes 1 and 2
+                # y_gyro - bytes 3 and 4
+                # z_gyro - bytes 5 and 6
+                # temperature - bytes 7 and 8
                 # updte position
                 # It will start by going on X's direction, then with gyro data ir will turn
                 if self.going_forward:
@@ -245,50 +275,33 @@ class VipperInterface(object):
                 self.info_gas_m.setText(_translate("MainWindow", gas_string))
                 time.sleep(0.1)
             else:
-                self.webcam_frame.capture_message()
-
+                try:
+                    message = self.webcam_frame.capture_message()
+                    self.sensor_conn.send(message)
+                except:
+                    print("Send message error")
 
     def go_forward(self):
-        _translate = QtCore.QCoreApplication.translate
-        # If it was going back, change text to backward again
-        if self.going_backward:
-            self.going_backward = False
-            self.btn_backward.setText(_translate("MainWindow", "Backward"))
-            self.btn_backward_m.setText(_translate("MainWindow", "Backward"))
-        # If it was going forward, change text to go forward again, and stop
-        if self.going_forward:
-            self.going_forward = False
-            self.btn_forward.setText(_translate("MainWindow", "Forward"))
-            self.btn_forward_m.setText(_translate("MainWindow", "Forward"))
-            print("Stop from going forward")
-        # If it was stopped, go forward
-        else:
-            self.going_forward = True
-            self.btn_forward.setText(_translate("MainWindow", "Stop"))
-            self.btn_forward_m.setText(_translate("MainWindow", "Stop"))
-            print("Started to go forward")
+        # Send message to go forward
+        print("forward")
+        self.btn_backward.setDisabled(True)
+        self.btn_forward.setDisabled(True)
+        self.control_conn.send(b'\x00')
+        time.sleep(0.5)
+        self.btn_backward.setDisabled(False)
+        self.btn_forward.setDisabled(False)
         
 
 
     def go_backward(self):
-        _translate = QtCore.QCoreApplication.translate
-        # If it was going back, change text to backward again
-        if self.going_forward:
-            self.going_forward = False
-            self.btn_forward.setText(_translate("MainWindow", "Forward"))
-            self.btn_forward_m.setText(_translate("MainWindow", "Forward"))
-        # If it was going forward, change text to go forward again, and stop
-        if self.going_backward:
-            self.going_backward = False
-            self.btn_backward.setText(_translate("MainWindow", "Backward"))
-            self.btn_backward_m.setText(_translate("MainWindow", "Backward"))
-            print("Stop from going backward")
-        # If it was stopped, go forward
-        else:
-            self.going_backward = True
-            self.btn_backward.setText(_translate("MainWindow", "Stop"))
-            self.btn_backward_m.setText(_translate("MainWindow", "Stop"))
-            print("Started to go backward")
+        # Send message to go backward
+        print("baackward")
+        self.btn_backward.setDisabled(True)
+        self.btn_forward.setDisabled(True)
+        self.control_conn.send(b'\xff')
+        time.sleep(0.5)
+        self.btn_backward.setDisabled(False)
+        self.btn_forward.setDisabled(False)
 
 
     def mute_mic(self):

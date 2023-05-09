@@ -32,33 +32,35 @@ class VipperInterface(object):
         self.muted = True
         self.going_forward = False
         self.going_backward = False
-
-        # Sockets for control and sensor boards
+        self.is_control_conn = False
+        self.is_sensor_conn = False
+        # Initiate the sockets
+        # control board
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.control_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.control_socket.bind((socket.gethostname(), 8080))
         self.control_socket.listen(1)
-        self.control_conn, control_addr = self.control_socket.accept()
-        print("accepted control_conn: " + str(control_addr))
-
+        # sensor board
         self.sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sensor_socket.bind((socket.gethostname(), 8081))
         self.sensor_socket.listen(1)
-        self.sensor_conn, sensor_addr = self.sensor_socket.accept()
-        print("accepted sensor_conn: " + str(sensor_addr))
 
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1000, 600)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
+        self.label_loading = QtWidgets.QLabel(MainWindow)
+        self.label_loading.setGeometry(QtCore.QRect(0, 0, 1000, 600))
+        self.label_loading.setObjectName("label_loading")
+        self.label_loading.setFont(QtGui.QFont('Times', 25, 60))
         self.tabWidget = QtWidgets.QTabWidget(self.centralwidget)
         self.tabWidget.setGeometry(QtCore.QRect(0, 0, 1000, 600))
         self.tabWidget.setObjectName("tabWidget")
         self.tab_webcam = QtWidgets.QWidget()
         self.tab_webcam.setObjectName("tab_webcam")
-        self.tab_webcam.setGeometry(QtCore.QRect(0, 0, 1000, 600))
+        self.tab_webcam.setGeometry(QtCore.QRect(200, 0, 600, 600))
         self.btn_forward = QtWidgets.QPushButton(self.tab_webcam)
         self.btn_forward.setGeometry(QtCore.QRect(700, 230, 91, 31))
         self.btn_forward.setObjectName("btn_forward")
@@ -177,6 +179,7 @@ class VipperInterface(object):
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "Vipper - version 1.0"))
+        self.label_loading.setText(_translate("MainWindow", ""))
         self.btn_forward.setText(_translate("MainWindow", "Forward"))
         self.btn_forward.setShortcut(_translate("MainWindow", "Up"))
         self.btn_backward.setText(_translate("MainWindow", "Backward"))
@@ -212,6 +215,9 @@ class VipperInterface(object):
         z_m = 0
         sensor_data = None
         while(1):
+            # In case some board is not connected, re-stablish connection
+            if (not self.is_sensor_conn) or (not self.is_control_conn):
+                self.loading()
             if self.muted:
                 self.tab_mapping.setDisabled(False)
                 # Random data
@@ -237,8 +243,12 @@ class VipperInterface(object):
                     self.sensor_conn.settimeout(3)
                     sensor_data = self.sensor_conn.recv(9)
                 except:
-                    print("No sensor information received")
+                    print("Lost Connection to sensor board")
+                    self.is_sensor_conn = False
                 print(sensor_data)
+                if sensor_data == b'':
+                    print("Lost Connection to sensor board")
+                    self.is_sensor_conn = False
                 # gas/movement - byte 0
                 # x_gyro - bytes 1 and 2
                 # y_gyro - bytes 3 and 4
@@ -279,26 +289,75 @@ class VipperInterface(object):
                     message = self.webcam_frame.capture_message()
                     self.sensor_conn.send(message)
                 except:
-                    print("Send message error")
+                    print("Lost connection to sensor board.")
+                    self.is_sensor_conn = False
+
+
+    def loading(self):
+        _translate = QtCore.QCoreApplication.translate
+        print("Connection Lost")
+        loading_text = "Establishing Connection\n"
+        if not self.is_control_conn:
+            loading_text += "Control Board - Not Connected\n"
+        else:
+            loading_text += "Control Board - Connected\n"
+        if not self.is_sensor_conn:
+            loading_text += "Sensor Board - Not Connected"
+        else:
+            loading_text += "Sensor Board - Connected"
+        self.centralwidget.setDisabled(True)
+        self.label_loading.setStyleSheet("background-color: White")
+        self.label_loading.setAlignment(QtCore.Qt.AlignCenter)
+        self.label_loading.setGeometry(QtCore.QRect(0, 0, 1000, 600))
+        self.label_loading.setText(_translate("MainWindow", loading_text))
+        if not self.is_control_conn:
+            self.connect_control()
+        loading_text.replace("Control Board - Not Connected", "Control Board - Connected")
+        self.label_loading.setText(_translate("MainWindow", "Establishing Connection\nSensor Board"))
+        if not self.is_sensor_conn:
+            self.connect_sensor()
+            self.label_loading.setGeometry(QtCore.QRect(0, 0, 0, 0))
+        self.label_loading.setText(_translate("MainWindow", ""))
+        self.centralwidget.setDisabled(False)
+
+
+    def connect_control(self):
+        self.control_conn, control_addr = self.control_socket.accept()
+        print("accepted control_conn: " + str(control_addr))
+        self.is_control_conn = True
+
+
+    def connect_sensor(self):
+        self.sensor_conn, sensor_addr = self.sensor_socket.accept()
+        print("accepted sensor_conn: " + str(sensor_addr))
+        self.is_sensor_conn = True
+
 
     def go_forward(self):
         # Send message to go forward
         print("forward")
         self.btn_backward.setDisabled(True)
         self.btn_forward.setDisabled(True)
-        self.control_conn.send(b'\x00')
+        try:
+            self.control_conn.send(b'\x00')
+        except:
+            print("Lost connection to control board.")
+            self.is_control_conn = False
         time.sleep(0.5)
         self.btn_backward.setDisabled(False)
         self.btn_forward.setDisabled(False)
         
 
-
     def go_backward(self):
         # Send message to go backward
-        print("baackward")
+        print("backward")
         self.btn_backward.setDisabled(True)
         self.btn_forward.setDisabled(True)
-        self.control_conn.send(b'\xff')
+        try:
+            self.control_conn.send(b'\xff')
+        except:
+            print("Lost connection to control board.")
+            self.is_control_conn = False
         time.sleep(0.5)
         self.btn_backward.setDisabled(False)
         self.btn_forward.setDisabled(False)

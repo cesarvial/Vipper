@@ -50,13 +50,13 @@ class WebcamCapture(QFrame):
                 rate=44100,  
                 frames_per_buffer=self.frames_per_buffer,  
                 input=True,
-                input_device_index=3)
+                input_device_index=1)
         self.head_input_stream = self.input_audio.open(format=pyaudio.paFloat32,  
                 channels=1,  
                 rate=44100,  
                 frames_per_buffer=self.frames_per_buffer,  
                 input=True,
-                input_device_index=self.head_mic_index)
+                input_device_index=0)
         self.output_stream = self.output_audio.open(format=pyaudio.paFloat32,
                 channels=1,
                 rate=44100,

@@ -3,19 +3,22 @@
 #include <RingBuf.h>
 
 #define SERVER_PORT 1775
-#define ACCESS_POINT
+//#define ACCESS_POINT
 
-#define SENSOR
+//#define SENSOR
 #define CONTROLE
 
 // Replace with your network credentials
-const char* ssid     = "Vipper-Access-Point";
-const char* password = "123456789vipper";
+//const char* ssid     = "Vipper-Access-Point";
+//const char* password = "123456789vipper";
+
+const char* ssid     = "Copel20";
+const char* password = "93002000";
 
 #ifdef ACCESS_POINT
   IPAddress local_IP(192,168,1,1);
 #else
-  IPAddress local_IP(192,168,1,2);
+  IPAddress local_IP(192,168,100,200);
 #endif
 
 // Set your Gateway IP address
@@ -88,10 +91,12 @@ void setup() {
   // Remove the password parameter, if you want the AP (Access Point) to be open
   WiFi.softAP(ssid, password);
   IPAddress IP = WiFi.softAPIP();
+  Serial.print("IP address: ");
+  Serial.println(IP);
 #endif
 
   Serial.print("IP address: ");
-  Serial.println(IP);
+  Serial.println(local_IP);
   
   Serial.print("MAC address: ");
   Serial.println(WiFi.macAddress());
@@ -114,7 +119,6 @@ void loop(){
 
     case CONNECTED:
       //stub
-      Serial.println("Conectado");
       break;
 
     default:
@@ -161,12 +165,14 @@ void trataConectandoServer()
     WiFi.begin(ssid, password);
     vipper.timeoutTimer = 30000;
     vipper.substate = CONNECTING_WIFI;
+    Serial.println("Conectando wifi");
   }
 
   //Esperamos conectar
   if (vipper.substate == CONNECTING_WIFI){
     if (WiFi.status() == WL_CONNECTED){
       vipper.substate = CONNECTING_APP;
+      Serial.println("Conectando app");
     }
     else if (!vipper.timeoutTimer)
     {
@@ -185,6 +191,7 @@ void trataConectandoServer()
       if (vipper.desktopApp.connected()) {            
         /* A partir daqui o cliente estah conectado */
         goToState(CONNECTED);
+        Serial.println("Conectado");
       }
       // Se estourou o timer limite de conexao, reinicia a conexao.
       else if (!vipper.timeoutTimer){
@@ -210,8 +217,10 @@ void trataMsgPlacaComando()
   vipper.appData.command = NO_COMMAND;
   
   while(vipper.desktopApp && vipper.desktopApp.available())
+  {
     vipper.appData.command = vipper.desktopApp.read();
-    
+    Serial.print("Comando: "); Serial.println(vipper.appData.command);
+  } 
 }
 #endif
 

@@ -5,8 +5,8 @@
 #define SERVER_PORT 1775
 //#define ACCESS_POINT
 
-//#define SENSOR
-#define CONTROLE
+#define SENSOR
+//#define CONTROLE
 
 // Replace with your network credentials
 //const char* ssid     = "Vipper-Access-Point";
@@ -106,6 +106,21 @@ void setup() {
   vipper.state = ESTABLISHING_CONNECTION;
 }
 
+void enviaMsgPlacaSensor(uint8_t gas, uint8_t movimento, uint16_t x_gyro, uint16_t y_gyro, uint16_t z_gyro, uint16_t temp);
+
+void trataConectadoSensor__stub()
+{
+  static uint32_t x = 0;
+  if(!x)
+  {
+    Serial.println("Enviando");
+    enviaMsgPlacaSensor(1, 0, 3000, 2000, 1000, 1920);
+    x = 1500;
+  }
+  x--;
+
+}
+
 void loop(){
   switch(vipper.state)
   {
@@ -119,6 +134,9 @@ void loop(){
 
     case CONNECTED:
       //stub
+      #ifdef SENSOR
+        trataConectadoSensor__stub();
+      #endif
       break;
 
     default:
@@ -232,6 +250,16 @@ void trataMsgPlacaSensor()
   {
       vipper.appData.message.push(vipper.desktopApp.read());
   }
+
+  #warning TESTE
+  while(!vipper.appData.message.isEmpty())
+  {
+    unsigned char a;
+    vipper.appData.message.pop(a);
+    Serial.print(a);
+    Serial.print("\n");
+  }
+
 }
 
 void enviaMsgPlacaSensor(uint8_t gas, uint8_t movimento, uint16_t x_gyro, uint16_t y_gyro, uint16_t z_gyro, uint16_t temp)

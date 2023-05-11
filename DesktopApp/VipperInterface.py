@@ -21,17 +21,17 @@ class VipperInterface(object):
     def __init__(self):
         self.temperature = 20
         self.dangerous_gas = False
-        # Acceleration order x y z
-        self.acc_data = [0, 0, 0]
+        # 0: inplace; 1: forward, 2:backward
+        self.direction = 0
         # Gyroscope order x y z
         self.gyro_data = [0, 0, 0]
-        # position based on both data
+        # postion array for plotting
         self.x_pos = [0]
         self.y_pos = [0]
         self.z_pos = [0]
+        # velocity order x y z
+        self.velocity = [1, 0, 0]
         self.muted = True
-        self.going_forward = False
-        self.going_backward = False
         self.is_control_conn = False
         self.is_sensor_conn = False
         # Initiate the sockets
@@ -206,6 +206,9 @@ class VipperInterface(object):
         self.actionSettings.setText(_translate("MainWindow", "Settings"))
         self.actionExit.setText(_translate("MainWindow", "Exit"))
         self.mapping_label.setText(_translate("MainWindow", "Left button to move, right button to Zoom in/out."))
+        self.mapping_axes.set_xlabel("x (m)")
+        self.mapping_axes.set_ylabel("y (m)")
+        self.mapping_axes.set_zlabel("z (m)")
 
     
     def update_data(self):
@@ -220,24 +223,20 @@ class VipperInterface(object):
                 self.loading()
             if self.muted:
                 self.tab_mapping.setDisabled(False)
-                # Random data
-                '''if self.dangerous_gas:
+                # ==================== Random data ========================
+                if self.dangerous_gas:
                     self.temperature += random.random()
+                    self.gyro_data[0] += random.random()/100
+                    self.gyro_data[1] += random.random()/100
+                    self.gyro_data[2] += random.random()/100
                 else:
                     self.temperature -= random.random()
+                    self.gyro_data[0] -= random.random()/100
+                    self.gyro_data[1] -= random.random()/100
+                    self.gyro_data[2] -= random.random()/100
                 # get gas
                 self.dangerous_gas = bool(random.getrandbits(1))
-                # get acc
-                # self.acc_data = [random.random(), random.random(), random.random()]
-                # get gyro data
-                # TODO: make it actually work. For now just random stuff
-                if (random.random() > 0.95):
-                    y_m = random.random()
-                    self.gyro_data = [0, y_m, 0]
-                if (random.random() < 0.05):
-                    z_m = random.random()
-                    self.gyro_data = [0, 0, z_m]'''
-                # Actual data
+                # ==================== Actual data ======================== 
                 # 9 Bytes 
                 try:
                     self.sensor_conn.settimeout(3)
@@ -245,7 +244,7 @@ class VipperInterface(object):
                 except:
                     print("Lost Connection to sensor board")
                     self.is_sensor_conn = False
-                print(sensor_data)
+                #print(sensor_data)
                 if sensor_data == b'':
                     print("Lost Connection to sensor board")
                     self.is_sensor_conn = False
@@ -255,20 +254,7 @@ class VipperInterface(object):
                 # z_gyro - bytes 5 and 6
                 # temperature - bytes 7 and 8
                 # updte position
-                # It will start by going on X's direction, then with gyro data ir will turn
-                if self.going_forward:
-                    self.x_pos.append(i)
-                    self.y_pos.append(i*y_m)
-                    self.z_pos.append(i*z_m)
-                    i += 0.01
-                elif self.going_backward and len(self.x_pos) > 1:
-                    self.x_pos.pop()
-                    self.y_pos.pop()
-                    self.z_pos.pop()
-                    i -= 0.01
-                # update mapping plot
-                self.update_mapping_plot()
-
+                self.update_position()
                 # update temperature
                 temp_string = "<html><head/><body><p><span style=\" font-size:11pt; color:#1f1f55;\">" + str(self.temperature)[0:6] + "º</span></p></body></html>"
                 self.info_temp.setText(_translate("MainWindow", temp_string))
@@ -295,7 +281,6 @@ class VipperInterface(object):
 
     def loading(self):
         _translate = QtCore.QCoreApplication.translate
-        print("Connection Lost")
         loading_text = "Establishing Connection\n"
         if not self.is_control_conn:
             loading_text += "Control Board - Not Connected\n"
@@ -312,8 +297,8 @@ class VipperInterface(object):
         self.label_loading.setText(_translate("MainWindow", loading_text))
         if not self.is_control_conn:
             self.connect_control()
-        loading_text.replace("Control Board - Not Connected", "Control Board - Connected")
-        self.label_loading.setText(_translate("MainWindow", "Establishing Connection\nSensor Board"))
+        loading_text = loading_text.replace("Control Board - Not Connected\n", "Control Board - Connected\n")
+        self.label_loading.setText(_translate("MainWindow", loading_text))
         if not self.is_sensor_conn:
             self.connect_sensor()
             self.label_loading.setGeometry(QtCore.QRect(0, 0, 0, 0))
@@ -335,7 +320,7 @@ class VipperInterface(object):
 
     def go_forward(self):
         # Send message to go forward
-        print("forward")
+        self.direction = 1
         self.btn_backward.setDisabled(True)
         self.btn_forward.setDisabled(True)
         try:
@@ -346,11 +331,12 @@ class VipperInterface(object):
         time.sleep(0.5)
         self.btn_backward.setDisabled(False)
         self.btn_forward.setDisabled(False)
+        self.direction = 0
         
 
     def go_backward(self):
         # Send message to go backward
-        print("backward")
+        self.direction = 2
         self.btn_backward.setDisabled(True)
         self.btn_forward.setDisabled(True)
         try:
@@ -361,7 +347,8 @@ class VipperInterface(object):
         time.sleep(0.5)
         self.btn_backward.setDisabled(False)
         self.btn_forward.setDisabled(False)
-
+        self.direction = 0
+    
 
     def mute_mic(self):
         _translate = QtCore.QCoreApplication.translate
@@ -393,10 +380,67 @@ class VipperInterface(object):
             self.tabWidget.tabBar().setDisabled(False)
 
 
+    def update_position(self):
+        # if it is going forward
+        if self.direction == 1:
+            rotation = self.calc_rotation_matrix(self.gyro_data[0], self.gyro_data[1], self.gyro_data[2])
+            # calculate new velocities
+            vx = self.velocity[0]
+            vy = self.velocity[1]
+            vz = self.velocity[2]
+            self.update_mapping_plot()
+            self.velocity[2] = rotation[0][0] * vx + rotation[0][1] * vy + rotation[0][2] * vz
+            self.velocity[1] = rotation[1][0] * vx + rotation[1][1] * vy + rotation[1][2] * vz
+            self.velocity[0] = rotation[2][0] * vx + rotation[2][1] * vy + rotation[2][2] * vz
+            # calculate new positions
+            delta_t = 0.1
+            self.x_pos.append(self.x_pos[len(self.x_pos) - 1] + self.velocity[0] * delta_t)
+            self.y_pos.append(self.y_pos[len(self.y_pos) - 1] + self.velocity[1] * delta_t)
+            self.z_pos.append(self.z_pos[len(self.z_pos) - 1] + self.velocity[2] * delta_t)
+            #print("gyr:", self.gyro_data)
+            #print("pos:", self.velocity[0] * delta_t, self.velocity[1] * delta_t, self.velocity[2] * delta_t)
+            #print("vel:", self.velocity)
+            self.update_mapping_plot()
+        # if it is going backwards
+        elif self.direction == 2:
+            self.x_pos.pop()
+            self.y_pos.pop()
+            self.z_pos.pop()
+            self.update_mapping_plot()
+
+    
+    # Function to calculate the rotation matrix with the gyro data
+    def calc_rotation_matrix(self, omega_x, omega_y, omega_z):
+        # constant because it only gets data each tenth of a second
+        delta_t = 0.1
+        # Calculate the sin and cosine of the angles
+        cosx = np.cos(omega_x * delta_t)
+        cosy = np.cos(omega_y * delta_t)
+        cosz = np.cos(omega_z * delta_t)
+        sinx = np.sin(omega_x * delta_t)
+        siny = np.sin(omega_y * delta_t)
+        sinz = np.sin(omega_z * delta_t)
+        # Calculate the elements of the rotation matrix
+        R11 = cosy * cosz
+        R12 = sinx * siny * cosz - cosx * sinz
+        R13 = cosx * siny * cosz + sinx * sinz
+        R21 = cosy * sinz
+        R22 = sinx * siny * sinz + cosx * cosz  
+        R23 = cosx * siny * sinz - sinx * cosz
+        R31 = -siny
+        R32 = sinx * cosy
+        R33 = cosx * cosy
+        # Return the rotation matrix
+        return [[R11, R12, R13], [R21, R22, R23], [R31, R32, R33]]
+
+
     def update_mapping_plot(self):
         self.mapping_axes.clear()
         self.mapping_axes.set_xlabel("x (m)")
         self.mapping_axes.set_ylabel("y (m)")
         self.mapping_axes.set_zlabel("z (m)")
-        self.mapping_axes.plot(self.x_pos, self.y_pos, self.z_pos, 'green')
+        tip = int((len(self.x_pos) / 100)*90)
+        self.mapping_axes.plot(self.x_pos[0:tip], self.y_pos[0:tip], self.z_pos[0:tip], color='limegreen', label='body')
+        self.mapping_axes.plot(self.x_pos[tip-1:], self.y_pos[tip-1:], self.z_pos[tip-1:], color='crimson', label='head')
+        self.mapping_axes.legend()
         self.mapping_canvas.draw()

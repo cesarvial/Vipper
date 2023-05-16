@@ -1,6 +1,9 @@
 // Load Wi-Fi library
 #include <WiFi.h>
 #include <RingBuf.h>
+#include "AudioFileSourcePROGMEM.h"
+#include "AudioGeneratorWAV.h"
+#include "AudioOutputI2SNoDAC.h"
 
 #define SERVER_PORT 1775
 #define ACCESS_POINT
@@ -35,7 +38,7 @@ typedef enum VipperState{
 
 typedef enum VipperConnectedSubstate{
   WAITING_FOR_DATA = 0,
-  PROCESSING_SENSOR_DATA,
+  PROCESSING_DATA,
   PLAYING_MESSAGE
 } VipperConnectedSubstate;
 
@@ -47,7 +50,7 @@ typedef enum VipperConnectingSubstate{
 
 typedef struct DesktopAppData{
 #ifdef SENSOR
-  RingBuf<uint8_t, 8000> message;
+  RingBuf<uint8_t, 8192> message;
 #endif
 #ifdef CONTROLE
   uint8_t command;
@@ -75,6 +78,10 @@ Vipper vipper;
 void goToState(VipperState state);
 void trataConectando();
 
+
+AudioGeneratorWAV* wav;
+AudioFileSourcePROGMEM* file;
+AudioOutputI2SNoDAC* out;
 
 void setup() {
   Serial.begin(115200);
@@ -104,6 +111,9 @@ void setup() {
   server.begin();
 
   vipper.state = ESTABLISHING_CONNECTION;
+  wav = new AudioGeneratorWAV();
+  out = new AudioOutputI2SNoDAC();
+  out->SetPinout( 27, 26, 25);
 }
 
 void enviaMsgPlacaSensor(uint8_t gas, uint8_t movimento, float x_gyro, float y_gyro, float z_gyro, float temp);
@@ -121,37 +131,79 @@ void trataConectadoSensor__stub()
 
 }
 
-void loop(){
-  switch(vipper.state)
+
+void trataConectadoSensor()
+{
+  static uint8_t audioFile[10000];
+  static uint32_t audioFileLen = 0;
+  switch(vipper.substate)
   {
-    case ESTABLISHING_CONNECTION:
-#ifdef ACCESS_POINT
-      trataConectandoAP();
-#else
-      trataConectandoServer();
-#endif
+    case WAITING_FOR_DATA:
+      if(vipper.appData.message.isEmpty())
+      {
+        vipper.substate = PROCESSING_DATA;
+      }
+      else
+      {
+        vipper.substate = PLAYING_MESSAGE;
+      }
       break;
-
-    case CONNECTED:
-      //stub
-      #ifdef SENSOR
-        trataConectadoSensor__stub();
-      #endif
+      
+    case PROCESSING_DATA:
+      // stub
+      vipper.substate = WAITING_FOR_DATA;
       break;
+      
+    case PLAYING_MESSAGE:
+      if(vipper.appData.message.isEmpty())
+      {
+        Serial.println("PLAYING_MESSAGE - Waiting for data");
+        vipper.substate = WAITING_FOR_DATA;
+      }
+      else
+      {
+        if(!wav->isRunning())
+        {
+          Serial.println("PLAYING_MESSAGE - Playing data");
+          audioFileLen = 0;
+          while(audioFileLen < 8044 && !vipper.appData.message.isEmpty())
+          {
+              vipper.appData.message.pop(audioFile[audioFileLen++]);
+              if(audioFileLen == 1 && audioFile[0] != 'R')
+                audioFileLen = 0;
+              if(audioFileLen == 2 && audioFile[1] != 'I')
+                audioFileLen = 0;
+              if(audioFileLen == 3 && audioFile[2] != 'F')
+                audioFileLen = 0;
+              if(audioFileLen == 4 && audioFile[3] != 'F')
+                audioFileLen = 0;
+              
+            
+          }
+          file = new AudioFileSourcePROGMEM(audioFile,audioFileLen);
 
-    default:
-      Serial.println("Erro - maquina de estados principal");
+          wav->begin(file, out);
+        }
+        else if (!wav->loop()) 
+        {
+          Serial.println("PLAYING_MESSAGE - Stop playing data");
+          wav->stop();
+          delete(file);
+        }
+      }
       break;
   }
 
-#ifdef SENSOR
-  trataMsgPlacaSensor();
-#endif
+  if(!vipper.desktopApp.connected())
+  {
+    vipper.desktopApp.stop();
+    vipper.desktopApp = 0;
+    goToState(ESTABLISHING_CONNECTION);
+    Serial.println("Conexao perdida");
+  }
 
-#ifdef CONTROLE
-  trataMsgPlacaComando();
-#endif
 }
+
 
 /* SERVIDOR COM PONTO DE ACESSO */
 void trataConectandoAP()
@@ -165,6 +217,7 @@ void trataConectandoAP()
     if (vipper.desktopApp.connected()) {            
       /* A partir daqui o cliente estah conectado */
       goToState(CONNECTED);
+      Serial.println("Conectado");
     }
     // Se estourou o timer limite de conexao, reinicia a conexao.
     else if (!vipper.timeoutTimer){
@@ -251,15 +304,6 @@ void trataMsgPlacaSensor()
       vipper.appData.message.push(vipper.desktopApp.read());
   }
 
-  #warning TESTE
-  while(!vipper.appData.message.isEmpty())
-  {
-    unsigned char a;
-    vipper.appData.message.pop(a);
-    Serial.print(a);
-    Serial.print("\n");
-  }
-
 }
 
 void enviaMsgPlacaSensor(uint8_t gas, uint8_t movimento, float x_gyro, float y_gyro, float z_gyro, float temp)
@@ -279,4 +323,35 @@ void enviaMsgPlacaSensor(uint8_t gas, uint8_t movimento, float x_gyro, float y_g
 }
 #endif
 
+void loop(){
+  switch(vipper.state)
+  {
+    case ESTABLISHING_CONNECTION:
+#ifdef ACCESS_POINT
+      trataConectandoAP();
+#else
+      trataConectandoServer();
+#endif
+      break;
+
+    case CONNECTED:
+      //stub
+      #ifdef SENSOR
+        trataConectadoSensor();
+      #endif
+      break;
+
+    default:
+      Serial.println("Erro - maquina de estados principal");
+      break;
+  }
+
+#ifdef SENSOR
+  trataMsgPlacaSensor();
+#endif
+
+#ifdef CONTROLE
+  trataMsgPlacaComando();
+#endif
+}
       

@@ -4,12 +4,22 @@
 #include "AudioFileSourcePROGMEM.h"
 #include "AudioGeneratorWAV.h"
 #include "AudioOutputI2SNoDAC.h"
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+#include <Wire.h>
 
 #define SERVER_PORT 1775
 #define ACCESS_POINT
 
 #define SENSOR
 //#define CONTROLE
+
+#define GAS_GPIO 14
+#define SOUND_LRC 26
+#define SOUND_BCLK 27
+#define SOUND_DIN 25
+#define MPU_SCL 22
+#define MPU_SDA 21
 
 // Replace with your network credentials
 const char* ssid     = "Vipper-Access-Point";
@@ -50,7 +60,9 @@ typedef enum VipperConnectingSubstate{
 
 typedef struct DesktopAppData{
 #ifdef SENSOR
-  RingBuf<uint8_t, 8192> message;
+  uint8_t audioFile[20000];
+  uint32_t audioFileLen;
+  uint8_t messageAvailable;
 #endif
 #ifdef CONTROLE
   uint8_t command;
@@ -78,13 +90,30 @@ Vipper vipper;
 void goToState(VipperState state);
 void trataConectando();
 
-
+// SOUND //
 AudioGeneratorWAV* wav;
 AudioFileSourcePROGMEM* file;
 AudioOutputI2SNoDAC* out;
 
+// MPU //
+Adafruit_MPU6050 mpu;
+
+// SYSTICK //
+volatile int interruptCounter = 0;
+hw_timer_t * timer = NULL;
+portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+
+void IRAM_ATTR onTimer() {
+  portENTER_CRITICAL_ISR(&timerMux);
+  interruptCounter++;
+  portEXIT_CRITICAL_ISR(&timerMux);
+ 
+}
+
 void setup() {
   Serial.begin(115200);
+  while (!Serial)
+    delay(10);
 
   if (!WiFi.config(local_IP, gateway, subnet))
   {
@@ -111,9 +140,95 @@ void setup() {
   server.begin();
 
   vipper.state = ESTABLISHING_CONNECTION;
+
+  // SOUND_SETUP //
   wav = new AudioGeneratorWAV();
   out = new AudioOutputI2SNoDAC();
-  out->SetPinout( 27, 26, 25);
+  out->SetPinout( SOUND_BCLK, SOUND_LRC, SOUND_DIN);
+  out->SetChannels(1);
+  out->SetBitsPerSample(16);
+  out->SetOutputModeMono(true);
+  out->SetRate(8000);
+
+  // MPU_SETUP //
+  if (!mpu.begin()) 
+    Serial.println("Failed to find MPU6050 chip");
+  else
+    Serial.println("MPU6050 Found!");
+
+  mpu.setAccelerometerRange(MPU6050_RANGE_2_G);
+  Serial.print("Accelerometer range set to: ");
+  switch (mpu.getAccelerometerRange()) {
+  case MPU6050_RANGE_2_G:
+    Serial.println("+-2G");
+    break;
+  case MPU6050_RANGE_4_G:
+    Serial.println("+-4G");
+    break;
+  case MPU6050_RANGE_8_G:
+    Serial.println("+-8G");
+    break;
+  case MPU6050_RANGE_16_G:
+    Serial.println("+-16G");
+    break;
+  }
+  mpu.setGyroRange(MPU6050_RANGE_250_DEG);
+  Serial.print("Gyro range set to: ");
+  switch (mpu.getGyroRange()) {
+  case MPU6050_RANGE_250_DEG:
+    Serial.println("+- 250 deg/s");
+    break;
+  case MPU6050_RANGE_500_DEG:
+    Serial.println("+- 500 deg/s");
+    break;
+  case MPU6050_RANGE_1000_DEG:
+    Serial.println("+- 1000 deg/s");
+    break;
+  case MPU6050_RANGE_2000_DEG:
+    Serial.println("+- 2000 deg/s");
+    break;
+  }
+
+  mpu.setFilterBandwidth(MPU6050_BAND_5_HZ);
+  Serial.print("Filter bandwidth set to: ");
+  switch (mpu.getFilterBandwidth()) {
+  case MPU6050_BAND_260_HZ:
+    Serial.println("260 Hz");
+    break;
+  case MPU6050_BAND_184_HZ:
+    Serial.println("184 Hz");
+    break;
+  case MPU6050_BAND_94_HZ:
+    Serial.println("94 Hz");
+    break;
+  case MPU6050_BAND_44_HZ:
+    Serial.println("44 Hz");
+    break;
+  case MPU6050_BAND_21_HZ:
+    Serial.println("21 Hz");
+    break;
+  case MPU6050_BAND_10_HZ:
+    Serial.println("10 Hz");
+    break;
+  case MPU6050_BAND_5_HZ:
+    Serial.println("5 Hz");
+    break;
+  }
+    
+  // GAS_SETUP //
+  pinMode(GAS_GPIO, INPUT);
+
+  // SYSTICK SETUP // 
+  timer = timerBegin(0, 80, true);
+  timerAttachInterrupt(timer, &onTimer, true);
+  // 100000 -> 0.1s
+  timerAlarmWrite(timer, 10000, true);
+  timerAlarmEnable(timer);
+
+  vipper.appData.messageAvailable = false;
+  vipper.appData.audioFileLen = 0;
+
+  vipper.desktopApp.setTimeout(2);
 }
 
 void enviaMsgPlacaSensor(uint8_t gas, uint8_t movimento, float x_gyro, float y_gyro, float z_gyro, float temp);
@@ -134,63 +249,66 @@ void trataConectadoSensor__stub()
 
 void trataConectadoSensor()
 {
-  static uint8_t audioFile[10000];
-  static uint32_t audioFileLen = 0;
+  sensors_event_t a, g, temp;
   switch(vipper.substate)
   {
     case WAITING_FOR_DATA:
-      if(vipper.appData.message.isEmpty())
+      if(interruptCounter > 20)
       {
+        interruptCounter = 0;
         vipper.substate = PROCESSING_DATA;
       }
-      else
+      else if(vipper.appData.messageAvailable)
       {
         vipper.substate = PLAYING_MESSAGE;
       }
       break;
       
-    case PROCESSING_DATA:
-      // stub
+    case PROCESSING_DATA:/* Get new sensor events with the readings */
+      mpu.getEvent(&a, &g, &temp);
+    
+      /* Print out the values */
+      /*
+      Serial.print("Acceleration X: ");
+      Serial.print(a.acceleration.x);
+      Serial.print(", Y: ");
+      Serial.print(a.acceleration.y);
+      Serial.print(", Z: ");
+      Serial.print(a.acceleration.z);
+      Serial.println(" m/s^2");
+    
+      Serial.print("Rotation X: ");
+      Serial.print(g.gyro.x);
+      Serial.print(", Y: ");
+      Serial.print(g.gyro.y);
+      Serial.print(", Z: ");
+      Serial.print(g.gyro.z);
+      Serial.println(" rad/s");
+    
+      Serial.print("Temperature: ");
+      Serial.print(temp.temperature);
+      Serial.println(" degC");
+      */
+      enviaMsgPlacaSensor(digitalRead(GAS_GPIO), 1, g.gyro.x, g.gyro.y, g.gyro.z, temp.temperature);
+      
       vipper.substate = WAITING_FOR_DATA;
       break;
       
     case PLAYING_MESSAGE:
-      if(vipper.appData.message.isEmpty())
-      {
-        Serial.println("PLAYING_MESSAGE - Waiting for data");
-        vipper.substate = WAITING_FOR_DATA;
-      }
-      else
-      {
-        if(!wav->isRunning())
-        {
-          Serial.println("PLAYING_MESSAGE - Playing data");
-          audioFileLen = 0;
-          while(audioFileLen < 8044 && !vipper.appData.message.isEmpty())
-          {
-              vipper.appData.message.pop(audioFile[audioFileLen++]);
-              if(audioFileLen == 1 && audioFile[0] != 'R')
-                audioFileLen = 0;
-              if(audioFileLen == 2 && audioFile[1] != 'I')
-                audioFileLen = 0;
-              if(audioFileLen == 3 && audioFile[2] != 'F')
-                audioFileLen = 0;
-              if(audioFileLen == 4 && audioFile[3] != 'F')
-                audioFileLen = 0;
-              
-            
-          }
-          file = new AudioFileSourcePROGMEM(audioFile,audioFileLen);
+      Serial.println("PLAYING_MESSAGE - Reading data");
+      file->open((const void*)vipper.appData.audioFile, 10000);
 
-          wav->begin(file, out);
-        }
-        else if (!wav->loop()) 
-        {
-          Serial.println("PLAYING_MESSAGE - Stop playing data");
-          wav->stop();
-          delete(file);
-        }
-      }
+      wav->begin(file, out);
+      Serial.println("PLAYING_MESSAGE - Playing data");
+      
+      while (wav->loop()) 
+      {}
+      Serial.println("PLAYING_MESSAGE - Stop playing data");
+      wav->stop();
+      file->close();
+      vipper.substate = WAITING_FOR_DATA;
+      vipper.appData.messageAvailable = false;
+      vipper.appData.audioFileLen = 0;
       break;
   }
 
@@ -299,27 +417,74 @@ void trataMsgPlacaComando()
 // Coloca a mensagem recebida no ringbuffer
 void trataMsgPlacaSensor()
 {
-  while(vipper.desktopApp && vipper.desktopApp.available() && !vipper.appData.message.isFull())
-  {
-      vipper.appData.message.push(vipper.desktopApp.read());
+  uint8_t header_info[4];
+  uint32_t pckt_size = 0;
+  byte byte_read;
+  uint8_t num_read = 0;
+
+  if(vipper.appData.audioFileLen > 10000){
+    Serial.println("Overflow audio");
+    vipper.appData.audioFileLen = 0;
   }
 
+  if(vipper.desktopApp && vipper.desktopApp.available() && vipper.appData.messageAvailable == false)
+  {
+    while(vipper.appData.audioFileLen < 8044)
+    {
+      byte_read = vipper.desktopApp.read(vipper.appData.audioFile + vipper.appData.audioFileLen, 100);
+      vipper.appData.audioFileLen += byte_read;
+      if(vipper.appData.audioFile[0] == 'R' && num_read == 0)
+        header_info[0] = vipper.appData.audioFile[0];
+      if(vipper.appData.audioFile[1] == 'I' && num_read == 1)
+        header_info[1] = vipper.appData.audioFile[1];
+      if(vipper.appData.audioFile[2] == 'F' && num_read == 2)
+        header_info[2] = vipper.appData.audioFile[2];
+      if(vipper.appData.audioFile[3] == 'F' && num_read == 3)
+        header_info[3] = vipper.appData.audioFile[3];
+  
+      if((vipper.appData.audioFile[0] == 'R') && (vipper.appData.audioFile[1] == 'I') && (vipper.appData.audioFile[2] == 'F') && (vipper.appData.audioFile[3] == 'F'))
+      { 
+        if(vipper.appData.audioFileLen < 8044)
+        {
+          Serial.print("Bytes recebidos: ");
+          Serial.println(vipper.appData.audioFileLen);
+          return;
+        }
+        vipper.appData.messageAvailable = true;
+        Serial.println("Mensagem recebida com sucesso");
+        Serial.print("Tamanho do arquivo: "); Serial.println(*((uint32_t*)(&vipper.appData.audioFile[4])));
+        //while(vipper.appData.audioFileLen > 16044)
+  
+        
+      }
+      else
+      {
+        Serial.println("Failed reading RIFF");
+        Serial.print(header_info[0]);  Serial.print(header_info[1]); Serial.print(header_info[2]); Serial.print(header_info[3]); 
+        return;
+  
+      }
+    }
+  }
+  
 }
 
 void enviaMsgPlacaSensor(uint8_t gas, uint8_t movimento, float x_gyro, float y_gyro, float z_gyro, float temp)
 {
   uint8_t message[9];
-  message[0] = (((1 && gas) << 1) | (1 && movimento)) << 6;
-  message[1] = ((*((uint16_t*)&x_gyro) & 0xFF00) >> 8);
-  message[2] = ((*((uint16_t*)&x_gyro) & 0xFF));
-  message[3] = ((*((uint16_t*)&y_gyro) & 0xFF00) >> 8);
-  message[4] = ((*((uint16_t*)&y_gyro) & 0xFF));
-  message[5] = ((*((uint16_t*)&z_gyro) & 0xFF00) >> 8);
-  message[6] = ((*((uint16_t*)&z_gyro) & 0xFF));
-  message[7] = ((*((uint16_t*)&temp) & 0xFF00) >> 8);
-  message[8] = ((*((uint16_t*)&temp) & 0xFF));
+  message[0] = (((1 && gas) << 2) | (movimento & 3)) << 5;
+  message[1] = ((((int16_t)(x_gyro*1000.)) & 0xFF00) >> 8);
+  message[2] = (((int16_t)(x_gyro*1000.)) & 0xFF);
+  message[3] = ((((int16_t)(y_gyro*1000.)) & 0xFF00) >> 8);
+  message[4] = ((((int16_t)(y_gyro*1000.)) & 0xFF));
+  message[5] = ((((int16_t)(z_gyro*1000.)) & 0xFF00) >> 8);
+  message[6] = ((((int16_t)(z_gyro*1000.)) & 0xFF));
+  message[7] = ((((int16_t)(temp*100.)) & 0xFF00) >> 8);
+  message[8] = ((((int16_t)(temp*100.)) & 0xFF));
 
-  vipper.desktopApp.write(message, 9);
+
+  if(vipper.desktopApp.connected())
+    vipper.desktopApp.write(message, 9);
 }
 #endif
 

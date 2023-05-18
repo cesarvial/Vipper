@@ -7,9 +7,13 @@ class MyMainWindow(QMainWindow):
         super().__init__()
         vipper_window = VipperInterface()
         vipper_window.setupUi(self)
+
+        # Thread to update all data
         self.data_thread = threading.Thread(target=vipper_window.update_data, daemon=True)
         self.data_thread.start()
-
+        # Thread to update and plot the map
+        self.map_thread = threading.Thread(target=vipper_window.mapping_loop, daemon=True)
+        self.map_thread.start()
 
 
 if __name__ == '__main__':

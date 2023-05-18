@@ -3,12 +3,14 @@ import struct
 
 def control_board():
     s = socket.socket()
-    s.connect((socket.gethostname(), 8080))
-    print("Control board")
+    s.bind((socket.gethostname(), 8080))
+    s.listen(1)
+    conn, add = s.accept()
+    print(add)
     while (1):
         try:
-            s.setblocking(True)
-            command = struct.unpack('>h', b'\x00' + s.recv(1))[0]
+            conn.setblocking(True)
+            command = struct.unpack('>h', b'\x00' + conn.recv(1))[0]
             print(command)
             #c = struct.unpack('i', command)[0]
             if int(command) == 255:

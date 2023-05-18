@@ -1,19 +1,18 @@
 import cv2
-import numpy as np
 import pyaudio
 import wave
 import threading
 
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QImage, QPixmap
-from PyQt5.QtWidgets import QLabel, QWidget, QHBoxLayout, QApplication, QFrame
+from PyQt5.QtWidgets import QLabel, QApplication, QFrame
 
 
 class WebcamCapture(QFrame):
     def __init__(self, tab):
         super().__init__(tab)
-
         self.running = True
+        self.fps = 8000
 
         # Set up the UI
         self.label = QLabel(self)
@@ -25,41 +24,48 @@ class WebcamCapture(QFrame):
         # Set up video capture
         # TODO: OpenCV cannot choose what camera to use, maybe find someway to choose the correct camera
         try:
-            self.video_capture = cv2.VideoCapture(2)
+            self.video_capture = cv2.VideoCapture(1)
             self.video_file = cv2.VideoWriter('head_video.avi', cv2.VideoWriter_fourcc(*'DIVX'), 20.0, (640,480))
         except:
             print("ATTENTION: Head camera not found.")
 
         # Set up audio capture
-        self.input_audio = pyaudio.PyAudio()
+        self.input_audio_head = pyaudio.PyAudio()
+        self.input_audio_msg = pyaudio.PyAudio()
         self.output_audio = pyaudio.PyAudio() 
+
         # Needs to find the head microphone
         self.head_mic_index = -1
-        for i in range(self.input_audio.get_device_count()):
-            print(self.input_audio.get_device_info_by_index(i).get('name'))
-            if self.input_audio.get_device_info_by_index(i).get('name') == 'Microfone (WEB CAM)':
+        for i in range(self.input_audio_head.get_device_count()):
+            print(self.input_audio_head.get_device_info_by_index(i).get('name'))
+        for i in range(self.input_audio_head.get_device_count()):
+            if (self.input_audio_head.get_device_info_by_index(i).get('name') == 'Microfone (2- WEB CAM)'
+            or self.input_audio_head.get_device_info_by_index(i).get('name') == 'Microfone (WEB CAM)'):
                 self.head_mic_index = i
                 break
         if (self.head_mic_index == -1):
             print("ATTENTION: Head microphone not found")
         
-        self.frames_per_buffer = 1024 
+        print("Headmic: " + str(self.head_mic_index))
+        self.frames_per_buffer = 4000 
         # TODO: maybe someway to choose the microphone for message
-        self.msg_input_stream = self.input_audio.open(format=pyaudio.paFloat32,  
+
+        # Start all the audio streams
+        self.msg_input_stream = self.input_audio_msg.open(format=pyaudio.paInt16,  
                 channels=1,  
-                rate=44100,  
+                rate=self.fps,  
                 frames_per_buffer=self.frames_per_buffer,  
                 input=True,
-                input_device_index=3)
-        self.head_input_stream = self.input_audio.open(format=pyaudio.paFloat32,  
+                input_device_index=2)
+        self.head_input_stream = self.input_audio_head.open(format=pyaudio.paInt16,  
                 channels=1,  
-                rate=44100,  
+                rate=self.fps,  
                 frames_per_buffer=self.frames_per_buffer,  
                 input=True,
                 input_device_index=self.head_mic_index)
-        self.output_stream = self.output_audio.open(format=pyaudio.paFloat32,
+        self.output_stream = self.output_audio.open(format=pyaudio.paInt16,
                 channels=1,
-                rate=44100,
+                rate=self.fps,
                 output=True)
         
         self.audio_thread = threading.Thread(target=self.play_head_audio_stream, daemon=True)
@@ -87,18 +93,34 @@ class WebcamCapture(QFrame):
         while(self.running):
             # Read audio from stream
             data = self.head_input_stream.read(self.frames_per_buffer, exception_on_overflow = False)
-            data = np.frombuffer(data, dtype=np.float32)
+            #data = np.frombuffer(data, dtype=np.float32)
             # Play the audio
-            self.output_stream.write(data.tobytes())
+            self.output_stream.write(data)
 
 
     def capture_message(self):
         # Read audio from stream
-        data = self.msg_input_stream.read(self.frames_per_buffer, exception_on_overflow = False)
-        data = np.frombuffer(data, dtype=np.float32)
+        frames = []
+        for i in range(0, 1):
+            data = self.msg_input_stream.read(self.frames_per_buffer, exception_on_overflow = False)
+            frames.append(data)
+        #data = np.frombuffer(data, dtype=np.int16)
         # Send data
-        print(len(data.tobytes()))
-        return data.tobytes()
+        #print("len data:" + str(len(data)))
+        file_write = wave.open('myfile.wav', 'wb')
+        file_write.setframerate(self.fps)
+        file_write.setnchannels(1)
+        file_write.setsampwidth(2)
+        file_write.writeframes(b''.join(frames))
+        file_write.close()
+        file_read = open('myfile.wav', 'rb')
+        final_data = file_read.read(8044)
+        file_read.close()
+        #print(final_data[0:10])
+        print("final_data_len: " + str(len(final_data)))
+        #print(final_data)
+        #print("\n\n\n\n\n")
+        return final_data
 
 
     def closeEvent(self, event):

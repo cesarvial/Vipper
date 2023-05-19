@@ -49,7 +49,7 @@ class VipperInterface(object):
         #self.control_socket.connect(self.control_board_add)
 
         # sensor board
-        self.sensor_board_add = ('192.168.4.1', 1775)
+        self.sensor_board_add = ('192.168.100.200', 1775)
         #self.sensor_board_add = (socket.gethostname(), 8081)
         self.sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

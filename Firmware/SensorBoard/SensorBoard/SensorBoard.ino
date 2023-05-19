@@ -144,6 +144,7 @@ void setup() {
   // SOUND_SETUP //
   wav = new AudioGeneratorWAV();
   out = new AudioOutputI2SNoDAC();
+  file = new AudioFileSourcePROGMEM();
   out->SetPinout( SOUND_BCLK, SOUND_LRC, SOUND_DIN);
   out->SetChannels(1);
   out->SetBitsPerSample(16);

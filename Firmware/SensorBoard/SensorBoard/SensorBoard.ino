@@ -9,7 +9,7 @@
 #include <Wire.h>
 
 #define SERVER_PORT 1775
-#define ACCESS_POINT
+//#define ACCESS_POINT
 
 #define SENSOR
 //#define CONTROLE
@@ -22,11 +22,11 @@
 #define MPU_SDA 21
 
 // Replace with your network credentials
-const char* ssid     = "Vipper-Access-Point";
-const char* password = "123456789vipper";
+//const char* ssid     = "Vipper-Access-Point";
+//const char* password = "123456789vipper";
 
-//const char* ssid     = "Copel20";
-//const char* password = "93002000";
+const char* ssid     = "Copel20";
+const char* password = "93002000";
 
 #ifdef ACCESS_POINT
   IPAddress local_IP(192,168,4,1);
@@ -296,7 +296,7 @@ void trataConectadoSensor()
       
     case PLAYING_MESSAGE:
       Serial.println("PLAYING_MESSAGE - Reading data");
-      file->open((const void*)vipper.appData.audioFile, 10000);
+      file->open((const void*)vipper.appData.audioFile, 16088);
 
       wav->begin(file, out);
       Serial.println("PLAYING_MESSAGE - Playing data");
@@ -429,7 +429,7 @@ void trataMsgPlacaSensor()
 
   if(vipper.desktopApp && vipper.desktopApp.available() && vipper.appData.messageAvailable == false)
   {
-    while(vipper.appData.audioFileLen < 8044)
+    while(vipper.appData.audioFileLen < 16088)
     {
       byte_read = vipper.desktopApp.read(vipper.appData.audioFile + vipper.appData.audioFileLen, 100);
       vipper.appData.audioFileLen += byte_read;
@@ -444,7 +444,7 @@ void trataMsgPlacaSensor()
   
       if((vipper.appData.audioFile[0] == 'R') && (vipper.appData.audioFile[1] == 'I') && (vipper.appData.audioFile[2] == 'F') && (vipper.appData.audioFile[3] == 'F'))
       { 
-        if(vipper.appData.audioFileLen < 8044)
+        if(vipper.appData.audioFileLen < 16088)
         {
           Serial.print("Bytes recebidos: ");
           Serial.println(vipper.appData.audioFileLen);

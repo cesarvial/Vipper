@@ -1,6 +1,5 @@
 // Load Wi-Fi library
 #include <WiFi.h>
-#include <RingBuf.h>
 #include "AudioFileSourcePROGMEM.h"
 #include "AudioGeneratorWAV.h"
 #include "AudioOutputI2SNoDAC.h"
@@ -144,11 +143,12 @@ void setup() {
   // SOUND_SETUP //
   wav = new AudioGeneratorWAV();
   out = new AudioOutputI2SNoDAC();
+  file = new AudioFileSourcePROGMEM();
   out->SetPinout( SOUND_BCLK, SOUND_LRC, SOUND_DIN);
   out->SetChannels(1);
-  out->SetBitsPerSample(16);
-  out->SetOutputModeMono(true);
-  out->SetRate(8000);
+  //out->SetBitsPerSample(16);
+  //out->SetOutputModeMono(true);
+  //out->SetRate(8000);
 
   // MPU_SETUP //
   if (!mpu.begin()) 
@@ -296,7 +296,7 @@ void trataConectadoSensor()
       
     case PLAYING_MESSAGE:
       Serial.println("PLAYING_MESSAGE - Reading data");
-      file->open((const void*)vipper.appData.audioFile, 16088);
+      file->open((const void*)vipper.appData.audioFile, 8066);
 
       wav->begin(file, out);
       Serial.println("PLAYING_MESSAGE - Playing data");
@@ -422,16 +422,18 @@ void trataMsgPlacaSensor()
   byte byte_read;
   uint8_t num_read = 0;
 
-  if(vipper.appData.audioFileLen > 10000){
-    Serial.println("Overflow audio");
-    vipper.appData.audioFileLen = 0;
-  }
 
   if(vipper.desktopApp && vipper.desktopApp.available() && vipper.appData.messageAvailable == false)
   {
-    while(vipper.appData.audioFileLen < 16088)
+    while(vipper.appData.audioFileLen < 8066)
     {
-      byte_read = vipper.desktopApp.read(vipper.appData.audioFile + vipper.appData.audioFileLen, 100);
+      byte_read = vipper.desktopApp.read(vipper.appData.audioFile + vipper.appData.audioFileLen, 500);
+
+      if(vipper.appData.audioFileLen > 8066){
+        Serial.println("Overflow audio");
+        vipper.appData.audioFileLen = 0;
+      }
+      
       vipper.appData.audioFileLen += byte_read;
       if(vipper.appData.audioFile[0] == 'R' && num_read == 0)
         header_info[0] = vipper.appData.audioFile[0];
@@ -444,7 +446,7 @@ void trataMsgPlacaSensor()
   
       if((vipper.appData.audioFile[0] == 'R') && (vipper.appData.audioFile[1] == 'I') && (vipper.appData.audioFile[2] == 'F') && (vipper.appData.audioFile[3] == 'F'))
       { 
-        if(vipper.appData.audioFileLen < 16088)
+        if(vipper.appData.audioFileLen < 8066)
         {
           Serial.print("Bytes recebidos: ");
           Serial.println(vipper.appData.audioFileLen);
@@ -461,6 +463,7 @@ void trataMsgPlacaSensor()
       {
         Serial.println("Failed reading RIFF");
         Serial.print(header_info[0]);  Serial.print(header_info[1]); Serial.print(header_info[2]); Serial.print(header_info[3]); 
+        vipper.appData.audioFileLen = 0;
         return;
   
       }

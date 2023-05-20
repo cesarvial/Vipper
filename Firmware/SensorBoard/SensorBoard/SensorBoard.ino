@@ -2,13 +2,13 @@
 #include <WiFi.h>
 #include "AudioFileSourcePROGMEM.h"
 #include "AudioGeneratorWAV.h"
-#include "AudioOutputI2SNoDAC.h"
+#include "AudioOutputI2S.h"
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 
 #define SERVER_PORT 1775
-//#define ACCESS_POINT
+#define ACCESS_POINT
 
 #define SENSOR
 //#define CONTROLE
@@ -21,11 +21,11 @@
 #define MPU_SDA 21
 
 // Replace with your network credentials
-//const char* ssid     = "Vipper-Access-Point";
-//const char* password = "123456789vipper";
+const char* ssid     = "Vipper-Access-Point";
+const char* password = "123456789vipper";
 
-const char* ssid     = "Copel20";
-const char* password = "93002000";
+//const char* ssid     = "Copel20";
+//const char* password = "93002000";
 
 #ifdef ACCESS_POINT
   IPAddress local_IP(192,168,4,1);
@@ -59,7 +59,7 @@ typedef enum VipperConnectingSubstate{
 
 typedef struct DesktopAppData{
 #ifdef SENSOR
-  uint8_t audioFile[20000];
+  uint8_t audioFile[50000];
   uint32_t audioFileLen;
   uint8_t messageAvailable;
 #endif
@@ -92,7 +92,7 @@ void trataConectando();
 // SOUND //
 AudioGeneratorWAV* wav;
 AudioFileSourcePROGMEM* file;
-AudioOutputI2SNoDAC* out;
+AudioOutputI2S* out;
 
 // MPU //
 Adafruit_MPU6050 mpu;
@@ -141,14 +141,15 @@ void setup() {
   vipper.state = ESTABLISHING_CONNECTION;
 
   // SOUND_SETUP //
+  audioLogger = &Serial;
   wav = new AudioGeneratorWAV();
-  out = new AudioOutputI2SNoDAC();
+  out = new AudioOutputI2S();
   file = new AudioFileSourcePROGMEM();
   out->SetPinout( SOUND_BCLK, SOUND_LRC, SOUND_DIN);
   out->SetChannels(1);
-  //out->SetBitsPerSample(16);
-  //out->SetOutputModeMono(true);
-  //out->SetRate(8000);
+  out->SetBitsPerSample(16);
+  out->SetOutputModeMono(true);
+  out->SetRate(8000);
 
   // MPU_SETUP //
   if (!mpu.begin()) 
@@ -250,10 +251,12 @@ void trataConectadoSensor__stub()
 void trataConectadoSensor()
 {
   sensors_event_t a, g, temp;
+  static uint8_t tocando = 0;
+  
   switch(vipper.substate)
   {
     case WAITING_FOR_DATA:
-      if(interruptCounter > 20)
+      if(interruptCounter > 20 && !vipper.appData.messageAvailable)
       {
         interruptCounter = 0;
         vipper.substate = PROCESSING_DATA;
@@ -295,21 +298,25 @@ void trataConectadoSensor()
       break;
       
     case PLAYING_MESSAGE:
-      Serial.println("PLAYING_MESSAGE - Reading data");
-      file->open((const void*)vipper.appData.audioFile, 8066);
-
-      wav->begin(file, out);
-      Serial.println("PLAYING_MESSAGE - Playing data");
-      
-      while (wav->loop()) 
-      {}
-      Serial.println("PLAYING_MESSAGE - Stop playing data");
-      wav->stop();
-      file->close();
-      vipper.substate = WAITING_FOR_DATA;
-      vipper.appData.messageAvailable = false;
-      vipper.appData.audioFileLen = 0;
-      break;
+      if(!tocando){
+        Serial.println("PLAYING_MESSAGE - Reading data");
+        file->open((const void*)vipper.appData.audioFile, 48044);
+  
+        wav->begin(file, out);
+        Serial.println("PLAYING_MESSAGE - Playing data");
+        tocando = 1;
+      }
+      if (tocando && !wav->loop()) 
+      {
+        Serial.println("PLAYING_MESSAGE - Stop playing data");
+        wav->stop();
+        file->close();
+        vipper.substate = WAITING_FOR_DATA;
+        vipper.appData.messageAvailable = false;
+        vipper.appData.audioFileLen = 0;
+        tocando = 0;
+        break;
+      }
   }
 
   if(!vipper.desktopApp.connected())
@@ -425,11 +432,11 @@ void trataMsgPlacaSensor()
 
   if(vipper.desktopApp && vipper.desktopApp.available() && vipper.appData.messageAvailable == false)
   {
-    while(vipper.appData.audioFileLen < 8066)
+    while(vipper.appData.audioFileLen < 48044)
     {
       byte_read = vipper.desktopApp.read(vipper.appData.audioFile + vipper.appData.audioFileLen, 500);
 
-      if(vipper.appData.audioFileLen > 8066){
+      if(vipper.appData.audioFileLen > 48044){
         Serial.println("Overflow audio");
         vipper.appData.audioFileLen = 0;
       }
@@ -446,7 +453,7 @@ void trataMsgPlacaSensor()
   
       if((vipper.appData.audioFile[0] == 'R') && (vipper.appData.audioFile[1] == 'I') && (vipper.appData.audioFile[2] == 'F') && (vipper.appData.audioFile[3] == 'F'))
       { 
-        if(vipper.appData.audioFileLen < 8066)
+        if(vipper.appData.audioFileLen < 48044)
         {
           Serial.print("Bytes recebidos: ");
           Serial.println(vipper.appData.audioFileLen);

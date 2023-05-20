@@ -13,8 +13,9 @@ sensor_socket.connect(sensor_board_add)
 
 print("Connected")
 print("Total: " + str(len(final_data)))
+
 i = 0
-'''while (i*100 < 8044):
+while (i*100 < 8044):
     begin = i*100
     end = (i + 1)*100
     if begin == 8000:
@@ -22,4 +23,4 @@ i = 0
     print(len(final_data[begin:end]))
     sensor_socket.send(final_data[begin:end])
     i += 1
-    time.sleep(0.05)'''
+    time.sleep(0.1)

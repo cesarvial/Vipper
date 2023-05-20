@@ -101,7 +101,7 @@ class WebcamCapture(QFrame):
     def capture_message(self):
         # Read audio from stream
         frames = []
-        for i in range(0, 1):
+        for i in range(0, 10):
             data = self.msg_input_stream.read(self.frames_per_buffer, exception_on_overflow = False)
             frames.append(data)
         #data = np.frombuffer(data, dtype=np.int16)
@@ -114,7 +114,7 @@ class WebcamCapture(QFrame):
         file_write.writeframes(b''.join(frames))
         file_write.close()
         file_read = open('myfile.wav', 'rb')
-        final_data = file_read.read(8044)
+        final_data = file_read.read(80044)
         file_read.close()
         #print(final_data[0:10])
         print("final_data_len: " + str(len(final_data)))

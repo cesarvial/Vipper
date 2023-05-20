@@ -303,18 +303,22 @@ class VipperInterface(object):
                         #print("message: " + str(len(message)))
                         # msg size is 16044
                         print(len(message))
-                        self.sensor_socket.send(message)
+                        #self.sensor_socket.send(message)
                         i = 0
-                        '''while (i*100 < 8044):
+                        #self.sensor_socket.send(message)
+                        padding = 56 * b'0'
+                        #self.mute_mic()
+                        print(len(message+padding))
+                        self.sensor_socket.send(message+padding)
+                        '''while (i*100 < 80044):
                             begin = i*100
                             end = (i + 1)*100
-                            if begin == 8000:
-                                end = 8044
-                            #print(len(message[begin:end]))
+                            if begin == 80000:
+                                end = 80044
+                            print(len(message[begin:end]))
                             self.sensor_socket.send(message[begin:end])
                             i += 1
-                            time.sleep(0.05)'''
-                        #self.mute_mic()
+                            time.sleep(0.1)'''
                     except:
                         #print("Lost connection to sensor board.")
                         self.is_sensor_conn = False

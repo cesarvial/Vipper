@@ -59,7 +59,7 @@ typedef enum VipperConnectingSubstate{
 
 typedef struct DesktopAppData{
 #ifdef SENSOR
-  uint8_t audioFile[50000];
+  uint8_t* audioFile;//[100000];
   uint32_t audioFileLen;
   uint8_t messageAvailable;
 #endif
@@ -110,6 +110,8 @@ void IRAM_ATTR onTimer() {
 }
 
 void setup() {
+  vipper.appData.audioFile =  (uint8_t*) malloc(sizeof(uint8_t) * 100000);
+  
   Serial.begin(115200);
   while (!Serial)
     delay(10);
@@ -300,7 +302,7 @@ void trataConectadoSensor()
     case PLAYING_MESSAGE:
       if(!tocando){
         Serial.println("PLAYING_MESSAGE - Reading data");
-        file->open((const void*)vipper.appData.audioFile, 48044);
+        file->open((const void*)vipper.appData.audioFile, 80044);
   
         wav->begin(file, out);
         Serial.println("PLAYING_MESSAGE - Playing data");
@@ -432,47 +434,50 @@ void trataMsgPlacaSensor()
 
   if(vipper.desktopApp && vipper.desktopApp.available() && vipper.appData.messageAvailable == false)
   {
-    while(vipper.appData.audioFileLen < 48044)
+    while(vipper.appData.audioFileLen < 80044)
     {
-      byte_read = vipper.desktopApp.read(vipper.appData.audioFile + vipper.appData.audioFileLen, 500);
-
-      if(vipper.appData.audioFileLen > 48044){
-        Serial.println("Overflow audio");
-        vipper.appData.audioFileLen = 0;
-      }
-      
-      vipper.appData.audioFileLen += byte_read;
-      if(vipper.appData.audioFile[0] == 'R' && num_read == 0)
-        header_info[0] = vipper.appData.audioFile[0];
-      if(vipper.appData.audioFile[1] == 'I' && num_read == 1)
-        header_info[1] = vipper.appData.audioFile[1];
-      if(vipper.appData.audioFile[2] == 'F' && num_read == 2)
-        header_info[2] = vipper.appData.audioFile[2];
-      if(vipper.appData.audioFile[3] == 'F' && num_read == 3)
-        header_info[3] = vipper.appData.audioFile[3];
+      if(vipper.desktopApp.available() >= 100){
+        byte_read = vipper.desktopApp.read(vipper.appData.audioFile + vipper.appData.audioFileLen, 100);
   
-      if((vipper.appData.audioFile[0] == 'R') && (vipper.appData.audioFile[1] == 'I') && (vipper.appData.audioFile[2] == 'F') && (vipper.appData.audioFile[3] == 'F'))
-      { 
-        if(vipper.appData.audioFileLen < 48044)
-        {
-          Serial.print("Bytes recebidos: ");
-          Serial.println(vipper.appData.audioFileLen);
-          return;
+        if(vipper.appData.audioFileLen > 80044){
+          Serial.println("Overflow audio");
+          vipper.appData.audioFileLen = 0;
         }
-        vipper.appData.messageAvailable = true;
-        Serial.println("Mensagem recebida com sucesso");
-        Serial.print("Tamanho do arquivo: "); Serial.println(*((uint32_t*)(&vipper.appData.audioFile[4])));
-        //while(vipper.appData.audioFileLen > 16044)
-  
         
-      }
-      else
-      {
-        Serial.println("Failed reading RIFF");
-        Serial.print(header_info[0]);  Serial.print(header_info[1]); Serial.print(header_info[2]); Serial.print(header_info[3]); 
-        vipper.appData.audioFileLen = 0;
-        return;
-  
+        vipper.appData.audioFileLen += byte_read;
+        if(vipper.appData.audioFile[0] == 'R' && num_read == 0)
+          header_info[0] = vipper.appData.audioFile[0];
+        if(vipper.appData.audioFile[1] == 'I' && num_read == 1)
+          header_info[1] = vipper.appData.audioFile[1];
+        if(vipper.appData.audioFile[2] == 'F' && num_read == 2)
+          header_info[2] = vipper.appData.audioFile[2];
+        if(vipper.appData.audioFile[3] == 'F' && num_read == 3)
+          header_info[3] = vipper.appData.audioFile[3];
+    
+        if((vipper.appData.audioFile[0] == 'R') && (vipper.appData.audioFile[1] == 'I') && (vipper.appData.audioFile[2] == 'F') && (vipper.appData.audioFile[3] == 'F'))
+        { 
+          if(vipper.appData.audioFileLen < 80044)
+          {
+            Serial.print("Bytes recebidos: ");
+            Serial.println(vipper.appData.audioFileLen);
+            //return;
+          }
+          else{
+            vipper.appData.messageAvailable = true;
+            Serial.println("Mensagem recebida com sucesso");
+            Serial.print("Tamanho do arquivo: "); Serial.println(*((uint32_t*)(&vipper.appData.audioFile[4])));
+            //while(vipper.appData.audioFileLen > 16044)
+          }
+          
+        }
+        else
+        {
+          Serial.println("Failed reading RIFF");
+          Serial.print(header_info[0]);  Serial.print(header_info[1]); Serial.print(header_info[2]); Serial.print(header_info[3]); 
+          vipper.appData.audioFileLen = 0;
+          return;
+    
+        }
       }
     }
   }

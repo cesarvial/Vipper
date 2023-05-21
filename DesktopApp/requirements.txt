@@ -2,3 +2,6 @@ pyquaternion
 ahrs
 scipy
 matplotlib
+opencv-python
+pyaudio
+audiofile

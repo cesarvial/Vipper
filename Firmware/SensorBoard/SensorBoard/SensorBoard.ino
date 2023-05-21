@@ -72,13 +72,11 @@ typedef struct DesktopAppData{
 #endif
 } DesktopAppData;
 
-#ifdef CONTROLE
 typedef enum DesktopAppCommand{
   BACK = 0,
   FORWARD = 1,
   NO_COMMAND = 2
 } DesktopAppCommand;
-#endif
 
 typedef struct Vipper{
   VipperState state;
@@ -242,7 +240,7 @@ void setup() {
   // SYSTICK SETUP // 
   timer = timerBegin(0, 80, true);
   timerAttachInterrupt(timer, &onTimer, true);
-  // 100000 -> 0.1s
+  // 10000 -> 0.01s
   timerAlarmWrite(timer, 10000, true);
   timerAlarmEnable(timer);
 
@@ -271,6 +269,7 @@ void trataConectadoSensor()
 {
   sensors_event_t a, g, temp;
   static uint8_t tocando = 0;
+  static uint8_t isMoving = 0;
   
   switch(vipper.substate)
   {
@@ -288,7 +287,6 @@ void trataConectadoSensor()
       
     case PROCESSING_DATA:/* Get new sensor events with the readings */
       mpu.getEvent(&a, &g, &temp);
-    
       /* Print out the values */
       /*
       Serial.print("Acceleration X: ");
@@ -311,7 +309,23 @@ void trataConectadoSensor()
       Serial.print(temp.temperature);
       Serial.println(" degC");
       */
-      enviaMsgPlacaSensor(digitalRead(GAS_GPIO), 1, g.gyro.x, g.gyro.y, g.gyro.z, temp.temperature);
+      if(!isMoving){
+        if(a.acceleration.x > ACCEL_FORWARD_TRESH)
+          isMoving = FORWARD;
+        else if (a.acceleration.x < ACCEL_BACKWARD_TRESH)
+          isMoving = BACK;
+      }
+      else if(isMoving == FORWARD){
+        if (a.acceleration.x < ACCEL_BACKWARD_TRESH)
+          isMoving = NO_COMMAND;
+      }
+      else
+      {
+        if(a.acceleration.x > ACCEL_FORWARD_TRESH)
+          isMoving = NO_COMMAND;
+      }
+
+      enviaMsgPlacaSensor(digitalRead(GAS_GPIO), isMoving, g.gyro.x, g.gyro.y, g.gyro.z, temp.temperature);
       
       vipper.substate = WAITING_FOR_DATA;
       break;
@@ -454,13 +468,13 @@ void trataConectadoControle()
   {
     digitalWrite(PINO_FRENTE, 1);
     digitalWrite(PINO_TRAS, 0);
-    timerComando = 30000;
+    timerComando = 50;
   }
   else if(vipper.appData.command == BACK)
   {
     digitalWrite(PINO_FRENTE, 0);
     digitalWrite(PINO_TRAS, 1);
-    timerComando = 30000;
+    timerComando = 50;
   }
   else if(timerComando <= 0)
   {

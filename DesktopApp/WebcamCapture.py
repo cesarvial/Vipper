@@ -42,8 +42,8 @@ class WebcamCapture(QFrame):
         for i in range(self.input_audio_head.get_device_count()):
             print(self.input_audio_head.get_device_info_by_index(i).get('name'))
         for i in range(self.input_audio_head.get_device_count()):
-            if (self.input_audio_head.get_device_info_by_index(i).get('name') == 'Microfone (2- WEB CAM)'
-            or self.input_audio_head.get_device_info_by_index(i).get('name') == 'Microfone (WEB CAM)'):
+            if ('WEB CAM)' in self.input_audio_head.get_device_info_by_index(i).get('name')
+            and 'Microfone' in self.input_audio_head.get_device_info_by_index(i).get('name')):
                 self.head_mic_index = i
                 break
         if (self.head_mic_index == -1):
@@ -59,7 +59,7 @@ class WebcamCapture(QFrame):
                 rate=self.fps,  
                 frames_per_buffer=self.frames_per_buffer,  
                 input=True,
-                input_device_index=1)
+                input_device_index=2)
         self.head_input_stream = self.input_audio_head.open(format=pyaudio.paInt16,  
                 channels=1,  
                 rate=self.fps,  
@@ -71,7 +71,7 @@ class WebcamCapture(QFrame):
                 rate=self.fps,
                 output=True)
         
-        self.audio_thread = threading.Thread(target=self.play_head_audio_stream, daemon=True)
+        #self.audio_thread = threading.Thread(target=self.play_head_audio_stream, daemon=True)
 
 
     def display_video_stream(self):
@@ -88,17 +88,16 @@ class WebcamCapture(QFrame):
         self.label.setPixmap(QPixmap.fromImage(img))
 
 
-    def start_audio_stream(self):
-        self.audio_thread.start()
+    #def start_audio_stream(self):
+    #    self.audio_thread.start()
 
 
     def play_head_audio_stream(self):
-        while(self.running):
-            # Read audio from stream
-            data = self.head_input_stream.read(self.frames_per_buffer, exception_on_overflow = False)
-            #data = np.frombuffer(data, dtype=np.float32)
-            # Play the audio
-            self.output_stream.write(data)
+        # Read audio from stream
+        data = self.head_input_stream.read(self.frames_per_buffer, exception_on_overflow = False)
+        #data = np.frombuffer(data, dtype=np.float32)
+        # Play the audio
+        self.output_stream.write(data)
 
 
     def capture_message(self):

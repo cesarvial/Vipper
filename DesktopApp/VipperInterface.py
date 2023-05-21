@@ -31,6 +31,14 @@ class VipperInterface(object):
         # Accelerometer order x y z
         self.acc_data = [0, 0, 0]
 
+        # Compensated acceleration
+        self.comp_acc = [0, 0, 0]
+
+        self.gravity_taken = False
+
+        # Gravity acceleration order x y z
+        self.gravity = [0, 0, 0]
+
         # postion array for plotting
         self.x_pos = [0]
         self.y_pos = [0]
@@ -52,8 +60,8 @@ class VipperInterface(object):
         #self.control_socket.connect(self.control_board_add)
 
         # sensor board
-        self.sensor_board_add = ('192.168.4.2', 1775)
-        #self.sensor_board_add = (socket.gethostname(), 8081)
+        #self.sensor_board_add = ('192.168.4.2', 1775)
+        self.sensor_board_add = (socket.gethostname(), 8081)
         self.sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         #self.sensor_socket.connect(self.sensor_board_add)
@@ -182,7 +190,7 @@ class VipperInterface(object):
         self.actionExit = QtWidgets.QAction(MainWindow)
         self.actionExit.setObjectName("actionExit")
 
-        self.webcam_frame.start_audio_stream()
+        #self.webcam_frame.start_audio_stream()
         self.retranslateUi(MainWindow)
         self.tabWidget.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -238,7 +246,7 @@ class VipperInterface(object):
                     # 9 Bytes 
                     try:
                         self.sensor_socket.settimeout(10)
-                        sensor_data = self.sensor_socket.recv(9)
+                        sensor_data = self.sensor_socket.recv(15)
                     except:
                         print("Lost Connection to sensor board")
                         self.is_sensor_conn = False
@@ -258,27 +266,31 @@ class VipperInterface(object):
                         self.dangerous_gas = False
 
                     # x_gyro - bytes 1 and 2
-                    self.gyro_data[0] = np.float16(struct.unpack('>h', sensor_data[1:3])[0]/1000 + 0.02)
-                    if (self.gyro_data[0] <= 0.06) and (self.gyro_data[0] >= -0.06):
-                        self.gyro_data[0] = 0.00
-                    # y_gyro - bytes 3 and 4
-                    self.gyro_data[1] = np.float16(struct.unpack('>h', sensor_data[3:5])[0]/1000 - 0.05)
+                    self.gyro_data[1] = np.float16(struct.unpack('>h', sensor_data[1:3])[0]/1000 + 0.02)
                     if (self.gyro_data[1] <= 0.06) and (self.gyro_data[1] >= -0.06):
                         self.gyro_data[1] = 0.00
-                    # z_gyro - bytes 5 and 6
-                    self.gyro_data[2] = np.float16(struct.unpack('>h', sensor_data[5:7])[0]/1000 - 0.01)
+                    # y_gyro - bytes 3 and 4
+                    self.gyro_data[2] = np.float16(struct.unpack('>h', sensor_data[3:5])[0]/1000 - 0.05)
                     if (self.gyro_data[2] <= 0.06) and (self.gyro_data[2] >= -0.06):
                         self.gyro_data[2] = 0.00
+                    # z_gyro - bytes 5 and 6
+                    self.gyro_data[0] = np.float16(struct.unpack('>h', sensor_data[5:7])[0]/1000 - 0.01)
+                    if (self.gyro_data[0] <= 0.06) and (self.gyro_data[0] >= -0.06):
+                        self.gyro_data[0] = 0.00
 
                     # temperature - bytes 7 and 8
                     self.temperature = np.float16(struct.unpack('>h', sensor_data[7:9])[0]/100)
 
-                    # x_acc - bytes 9 and 10
-                    self.acc_data[0] = np.float16(struct.unpack('>h', sensor_data[9:11])[0]/1000)
+                    # z_acc - bytes 9 and 10
+                    self.acc_data[1] = np.float16(struct.unpack('>h', sensor_data[9:11])[0]/1000)
                     # y_acc - bytes 11 and 12
-                    self.acc_data[1] = np.float16(struct.unpack('>h', sensor_data[11:13])[0]/1000)
-                    # z_acc - bytes 13 and 14
-                    self.acc_data[2] = np.float16(struct.unpack('>h', sensor_data[13:])[0]/1000)
+                    self.acc_data[2] = np.float16(struct.unpack('>h', sensor_data[11:13])[0]/1000)
+                    # x_acc - bytes 13 and 14
+                    self.acc_data[0] = np.float16(struct.unpack('>h', sensor_data[13:15])[0]/1000)*-1
+
+                    if not self.gravity_taken:
+                        self.gravity = np.copy(self.acc_data)
+                        self.gravity_taken = True
 
                     # update temperature text
                     temp_string = "<html><head/><body><p><span style=\" font-size:11pt; color:#1f1f55;\">" + str(self.temperature)[0:6] + "º</span></p></body></html>"
@@ -305,7 +317,7 @@ class VipperInterface(object):
                         padding = 56 * b'0'
                         self.sensor_socket.send(message+padding)
                     except:
-                        #print("Lost connection to sensor board.")
+                        print("Lost connection to sensor board.")
                         self.is_sensor_conn = False
 
 
@@ -348,9 +360,7 @@ class VipperInterface(object):
         try:
             self.control_socket.connect(self.control_board_add)
             self.is_control_conn = True
-            #print("Control connected")
         except:
-            #print("Control not connected")
             self.is_control_conn = False
 
 
@@ -359,9 +369,7 @@ class VipperInterface(object):
         try:
             self.sensor_socket.connect(self.sensor_board_add)
             self.is_sensor_conn = True
-            #print("Sensor connected")
         except:
-            #print("Sensor not connected")
             self.is_sensor_conn = False
 
 
@@ -418,16 +426,57 @@ class VipperInterface(object):
     # function to run the mapping on a different thread
     def mapping_loop(self):
         while (True):
-            if (self.muted):
+            if (self.gravity_taken and self.is_sensor_conn and self.is_control_conn and self.muted):
                 self.update_position()
                 time.sleep(0.1)
 
 
+    def audio_loop(self):
+        while(True):
+            if(self.muted):
+                self.webcam_frame.play_head_audio_stream()
+
+
     # Update the position of the head
     def update_position(self):
+        # calculate the direction it is going
+        # For this we need to compesate for the gravity acceleration
+        rotation = self.calc_rotation_matrix(self.gyro_data[0], self.gyro_data[1], self.gyro_data[2])
+        gx = self.gravity[0]
+        gy = self.gravity[1]
+        gz = self.gravity[2]
+        self.gravity[0] = rotation[0][0] * gx + rotation[0][1] * gy + rotation[0][2] * gz
+        self.gravity[1] = rotation[1][0] * gx + rotation[1][1] * gy + rotation[1][2] * gz
+        self.gravity[2] = rotation[2][0] * gx + rotation[2][1] * gy + rotation[2][2] * gz 
+        self.comp_acc[0] = self.acc_data[0] - self.gravity[0]
+        self.comp_acc[1] = self.acc_data[1] - self.gravity[1]
+        self.comp_acc[2] = self.acc_data[2] - self.gravity[2]
+
+        # if it is in place
+        if (self.direction == 2):
+            # going forward
+            if (self.comp_acc[0] >= 0.1):
+                self.direction = 1
+            # going backward
+            elif (self.comp_acc[0] <= -0.1):
+                self.direction = 0
+        # if it is going forward
+        if (self.direction == 1):
+            # stop 
+            if (self.comp_acc[0] <= -0.1):
+                self.direction = 2
+        # if it is going backward
+        if (self.direction == 0):
+            # stop
+            if (self.comp_acc[0] >= 0.1):
+                self.direction = 2
+
+        #print("raw acc, gravity, comp acc, direction")
+        #print(self.acc_data, self.gravity, self.comp_acc, self.direction)
+
         # if it is going forward
         if self.direction == 1:
-            rotation = self.calc_rotation_matrix(self.gyro_data[0], self.gyro_data[1], self.gyro_data[2])
+            # rotation = self.calc_rotation_matrix(self.gyro_data[0], self.gyro_data[1], self.gyro_data[2])
 
             # calculate new velocities
             vx = self.velocity[0]
@@ -446,14 +495,15 @@ class VipperInterface(object):
             self.update_mapping_plot()
 
         # if it is going backwards
-        elif self.direction == 0:
+        elif self.direction == 0 and len(self.x_pos) > 1:
             try:
                 self.x_pos.pop()
                 self.y_pos.pop()
                 self.z_pos.pop()
                 self.update_mapping_plot()
             except:
-                print("no more positions to pop")
+                #print("no more positions to pop")
+                pass
 
     
     # Function to calculate the rotation matrix with the gyro data

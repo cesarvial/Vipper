@@ -14,6 +14,9 @@ class MyMainWindow(QMainWindow):
         # Thread to update and plot the map
         self.map_thread = threading.Thread(target=vipper_window.mapping_loop, daemon=True)
         self.map_thread.start()
+        # Thread for the audio coming from the webcam
+        self.audio_thread = threading.Thread(target=vipper_window.audio_loop, daemon=True)
+        self.audio_thread.start()
 
 
 if __name__ == '__main__':

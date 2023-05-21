@@ -8,7 +8,7 @@
 #include <Wire.h>
 
 #define SERVER_PORT 1775
-#define ACCESS_POINT
+//#define ACCESS_POINT
 
 #define SENSOR
 //#define CONTROLE
@@ -20,6 +20,10 @@
 #define MPU_SCL 22
 #define MPU_SDA 21
 
+
+#define PINO_FRENTE 27
+#define PINO_TRAS 26
+
 // Replace with your network credentials
 const char* ssid     = "Vipper-Access-Point";
 const char* password = "123456789vipper";
@@ -30,12 +34,12 @@ const char* password = "123456789vipper";
 #ifdef ACCESS_POINT
   IPAddress local_IP(192,168,4,1);
 #else
-  IPAddress local_IP(192,168,100,200);
+  IPAddress local_IP(192,168,4,2);
 #endif
 
 // Set your Gateway IP address
 IPAddress gateway(192, 168, 1, 1);
-IPAddress subnet(255, 255, 0, 0);
+IPAddress subnet(255, 255, 255, 0);
 
 // Set server port number to SERVER_PORT
 WiFiServer server(SERVER_PORT);
@@ -99,18 +103,20 @@ Adafruit_MPU6050 mpu;
 
 // SYSTICK //
 volatile int interruptCounter = 0;
+volatile uint32_t timerComando = 0;
 hw_timer_t * timer = NULL;
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 
 void IRAM_ATTR onTimer() {
   portENTER_CRITICAL_ISR(&timerMux);
   interruptCounter++;
+  if(timerComando)
+    timerComando--;
   portEXIT_CRITICAL_ISR(&timerMux);
  
 }
 
 void setup() {
-  vipper.appData.audioFile =  (uint8_t*) malloc(sizeof(uint8_t) * 100000);
   
   Serial.begin(115200);
   while (!Serial)
@@ -132,16 +138,17 @@ void setup() {
   Serial.println(IP);
 #endif
 
-  Serial.print("IP address: ");
-  Serial.println(local_IP);
-  
   Serial.print("MAC address: ");
   Serial.println(WiFi.macAddress());
   
   server.begin();
+  
 
   vipper.state = ESTABLISHING_CONNECTION;
 
+#ifdef SENSOR
+
+  vipper.appData.audioFile =  (uint8_t*) malloc(sizeof(uint8_t) * 100000);
   // SOUND_SETUP //
   audioLogger = &Serial;
   wav = new AudioGeneratorWAV();
@@ -221,6 +228,17 @@ void setup() {
   // GAS_SETUP //
   pinMode(GAS_GPIO, INPUT);
 
+  vipper.appData.messageAvailable = false;
+  vipper.appData.audioFileLen = 0;
+#endif
+
+#ifdef CONTROLE
+  pinMode(PINO_FRENTE, OUTPUT);
+  pinMode(PINO_TRAS, OUTPUT);
+    digitalWrite(PINO_FRENTE, 0);
+    digitalWrite(PINO_TRAS, 0); 
+#endif
+
   // SYSTICK SETUP // 
   timer = timerBegin(0, 80, true);
   timerAttachInterrupt(timer, &onTimer, true);
@@ -228,12 +246,11 @@ void setup() {
   timerAlarmWrite(timer, 10000, true);
   timerAlarmEnable(timer);
 
-  vipper.appData.messageAvailable = false;
-  vipper.appData.audioFileLen = 0;
 
   vipper.desktopApp.setTimeout(2);
 }
 
+#ifdef SENSOR
 void enviaMsgPlacaSensor(uint8_t gas, uint8_t movimento, float x_gyro, float y_gyro, float z_gyro, float temp);
 
 void trataConectadoSensor__stub()
@@ -302,7 +319,7 @@ void trataConectadoSensor()
     case PLAYING_MESSAGE:
       if(!tocando){
         Serial.println("PLAYING_MESSAGE - Reading data");
-        file->open((const void*)vipper.appData.audioFile, 80044);
+        file->open((const void*)vipper.appData.audioFile, 16100);
   
         wav->begin(file, out);
         Serial.println("PLAYING_MESSAGE - Playing data");
@@ -330,8 +347,9 @@ void trataConectadoSensor()
   }
 
 }
+#endif
 
-
+#ifdef ACCESS_POINT
 /* SERVIDOR COM PONTO DE ACESSO */
 void trataConectandoAP()
 {
@@ -353,7 +371,9 @@ void trataConectandoAP()
     }
   }
 }
+#endif
 
+#ifndef ACCESS_POINT
 /* SERVER SEM PONTO DE ACESSO */
 void trataConectandoServer()
 {
@@ -371,6 +391,9 @@ void trataConectandoServer()
     if (WiFi.status() == WL_CONNECTED){
       vipper.substate = CONNECTING_APP;
       Serial.println("Conectando app");
+      Serial.print("IP address: ");
+      Serial.println(WiFi.localIP());
+
     }
     else if (!vipper.timeoutTimer)
     {
@@ -400,6 +423,7 @@ void trataConectandoServer()
   }
 
 }
+#endif
 
 void goToState(VipperState state)
 {
@@ -416,10 +440,36 @@ void trataMsgPlacaComando()
   
   while(vipper.desktopApp && vipper.desktopApp.available())
   {
-    vipper.appData.command = vipper.desktopApp.read();
+    if(vipper.desktopApp.read())
+      vipper.appData.command = BACK;
+    else
+      vipper.appData.command = FORWARD;  
     Serial.print("Comando: "); Serial.println(vipper.appData.command);
   } 
 }
+
+void trataConectadoControle()
+{
+  if(vipper.appData.command == FORWARD)
+  {
+    digitalWrite(PINO_FRENTE, 1);
+    digitalWrite(PINO_TRAS, 0);
+    timerComando = 30000;
+  }
+  else if(vipper.appData.command == BACK)
+  {
+    digitalWrite(PINO_FRENTE, 0);
+    digitalWrite(PINO_TRAS, 1);
+    timerComando = 30000;
+  }
+  else if(timerComando <= 0)
+  {
+    digitalWrite(PINO_FRENTE, 0);
+    digitalWrite(PINO_TRAS, 0); 
+  }
+
+}
+
 #endif
 
 #ifdef SENSOR
@@ -434,12 +484,12 @@ void trataMsgPlacaSensor()
 
   if(vipper.desktopApp && vipper.desktopApp.available() && vipper.appData.messageAvailable == false)
   {
-    while(vipper.appData.audioFileLen < 80044)
+    while(vipper.appData.audioFileLen < 16100)
     {
       if(vipper.desktopApp.available() >= 100){
         byte_read = vipper.desktopApp.read(vipper.appData.audioFile + vipper.appData.audioFileLen, 100);
   
-        if(vipper.appData.audioFileLen > 80044){
+        if(vipper.appData.audioFileLen > 16100){
           Serial.println("Overflow audio");
           vipper.appData.audioFileLen = 0;
         }
@@ -456,17 +506,17 @@ void trataMsgPlacaSensor()
     
         if((vipper.appData.audioFile[0] == 'R') && (vipper.appData.audioFile[1] == 'I') && (vipper.appData.audioFile[2] == 'F') && (vipper.appData.audioFile[3] == 'F'))
         { 
-          if(vipper.appData.audioFileLen < 80044)
+          if(vipper.appData.audioFileLen < 16100)
           {
-            Serial.print("Bytes recebidos: ");
-            Serial.println(vipper.appData.audioFileLen);
+            //Serial.print("Bytes recebidos: ");
+            //Serial.println(vipper.appData.audioFileLen);
             //return;
           }
           else{
             vipper.appData.messageAvailable = true;
             Serial.println("Mensagem recebida com sucesso");
             Serial.print("Tamanho do arquivo: "); Serial.println(*((uint32_t*)(&vipper.appData.audioFile[4])));
-            //while(vipper.appData.audioFileLen > 16044)
+            //while(vipper.appData.audioFileLen > )
           }
           
         }
@@ -519,6 +569,16 @@ void loop(){
       #ifdef SENSOR
         trataConectadoSensor();
       #endif
+      #ifdef CONTROLE
+        trataConectadoControle();
+      #endif
+      
+      if(!vipper.desktopApp.connected())
+      {
+        vipper.desktopApp.stop();
+        vipper.desktopApp = 0;
+        goToState(ESTABLISHING_CONNECTION);
+      }
       break;
 
     default:

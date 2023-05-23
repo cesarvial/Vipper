@@ -1,4 +1,5 @@
 // Load Wi-Fi library
+#include <Arduino.h>
 #include <WiFi.h>
 #include "AudioFileSourcePROGMEM.h"
 #include "AudioGeneratorWAV.h"
@@ -146,7 +147,7 @@ void setup() {
 
 #ifdef SENSOR
 
-  vipper.appData.audioFile =  (uint8_t*) malloc(sizeof(uint8_t) * 100000);
+  vipper.appData.audioFile =  (uint8_t*) malloc(sizeof(uint8_t) * 20000);
   // SOUND_SETUP //
   audioLogger = &Serial;
   wav = new AudioGeneratorWAV();
@@ -249,8 +250,9 @@ void setup() {
 }
 
 #ifdef SENSOR
-void enviaMsgPlacaSensor(uint8_t gas, uint8_t movimento, float x_gyro, float y_gyro, float z_gyro, float temp);
+void enviaMsgPlacaSensor(uint8_t gas, uint8_t movimento, sensors_event_t g, float temp, sensors_event_t a);
 
+/*
 void trataConectadoSensor__stub()
 {
   static uint32_t x = 0;
@@ -263,7 +265,7 @@ void trataConectadoSensor__stub()
   x--;
 
 }
-
+*/
 
 void trataConectadoSensor()
 {
@@ -288,7 +290,7 @@ void trataConectadoSensor()
     case PROCESSING_DATA:/* Get new sensor events with the readings */
       mpu.getEvent(&a, &g, &temp);
       /* Print out the values */
-      /*
+      
       Serial.print("Acceleration X: ");
       Serial.print(a.acceleration.x);
       Serial.print(", Y: ");
@@ -308,25 +310,8 @@ void trataConectadoSensor()
       Serial.print("Temperature: ");
       Serial.print(temp.temperature);
       Serial.println(" degC");
-      */
-      if(!isMoving){
-        if(a.acceleration.x > ACCEL_FORWARD_TRESH)
-          isMoving = FORWARD;
-        else if (a.acceleration.x < ACCEL_BACKWARD_TRESH)
-          isMoving = BACK;
-      }
-      else if(isMoving == FORWARD){
-        if (a.acceleration.x < ACCEL_BACKWARD_TRESH)
-          isMoving = NO_COMMAND;
-      }
-      else
-      {
-        if(a.acceleration.x > ACCEL_FORWARD_TRESH)
-          isMoving = NO_COMMAND;
-      }
-
-      enviaMsgPlacaSensor(digitalRead(GAS_GPIO), isMoving, g.gyro.x, g.gyro.y, g.gyro.z, temp.temperature);
       
+      enviaMsgPlacaSensor(digitalRead(GAS_GPIO), isMoving, g, temp.temperature, a);
       vipper.substate = WAITING_FOR_DATA;
       break;
       
@@ -548,9 +533,16 @@ void trataMsgPlacaSensor()
   
 }
 
-void enviaMsgPlacaSensor(uint8_t gas, uint8_t movimento, float x_gyro, float y_gyro, float z_gyro, float temp)
+void enviaMsgPlacaSensor(uint8_t gas, uint8_t movimento, sensors_event_t g, float temp, sensors_event_t a)
 {
-  uint8_t message[9];
+  uint8_t message[15];
+  float x_gyro = g.gyro.x;
+  float y_gyro = g.gyro.y;
+  float z_gyro = g.gyro.z;
+  float x_accel = a.acceleration.x;
+  float y_accel = a.acceleration.y;
+  float z_accel = a.acceleration.z;
+  
   message[0] = (((1 && gas) << 2) | (movimento & 3)) << 5;
   message[1] = ((((int16_t)(x_gyro*1000.)) & 0xFF00) >> 8);
   message[2] = (((int16_t)(x_gyro*1000.)) & 0xFF);
@@ -560,10 +552,16 @@ void enviaMsgPlacaSensor(uint8_t gas, uint8_t movimento, float x_gyro, float y_g
   message[6] = ((((int16_t)(z_gyro*1000.)) & 0xFF));
   message[7] = ((((int16_t)(temp*100.)) & 0xFF00) >> 8);
   message[8] = ((((int16_t)(temp*100.)) & 0xFF));
+  message[9] = ((((int16_t)(x_accel*1000.)) & 0xFF00) >> 8);
+  message[10] = (((int16_t)(x_accel*1000.)) & 0xFF);
+  message[11] = ((((int16_t)(y_accel*1000.)) & 0xFF00) >> 8);
+  message[12] = ((((int16_t)(y_accel*1000.)) & 0xFF));
+  message[13] = ((((int16_t)(z_accel*1000.)) & 0xFF00) >> 8);
+  message[14] = ((((int16_t)(z_accel*1000.)) & 0xFF));
 
 
   if(vipper.desktopApp.connected())
-    vipper.desktopApp.write(message, 9);
+    vipper.desktopApp.write(message, 15);
 }
 #endif
 

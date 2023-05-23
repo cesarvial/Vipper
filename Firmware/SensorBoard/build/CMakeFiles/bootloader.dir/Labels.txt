@@ -1,0 +1,13 @@
+# Target labels
+ bootloader
+# Source files and their labels
+/home/hexdev04/Documents/Projetos/vipper/Vipper/Firmware/SensorBoard/build/CMakeFiles/bootloader
+/home/hexdev04/Documents/Projetos/vipper/Vipper/Firmware/SensorBoard/build/CMakeFiles/bootloader.rule
+/home/hexdev04/Documents/Projetos/vipper/Vipper/Firmware/SensorBoard/build/CMakeFiles/bootloader-complete.rule
+/home/hexdev04/Documents/Projetos/vipper/Vipper/Firmware/SensorBoard/build/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule
+/home/hexdev04/Documents/Projetos/vipper/Vipper/Firmware/SensorBoard/build/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule
+/home/hexdev04/Documents/Projetos/vipper/Vipper/Firmware/SensorBoard/build/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule
+/home/hexdev04/Documents/Projetos/vipper/Vipper/Firmware/SensorBoard/build/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule
+/home/hexdev04/Documents/Projetos/vipper/Vipper/Firmware/SensorBoard/build/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule
+/home/hexdev04/Documents/Projetos/vipper/Vipper/Firmware/SensorBoard/build/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule
+/home/hexdev04/Documents/Projetos/vipper/Vipper/Firmware/SensorBoard/build/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule

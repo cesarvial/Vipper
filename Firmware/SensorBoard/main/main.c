@@ -7,5 +7,5 @@ void vipper_head_init(){
 
 void app_main(void)
 {
-
+    audio_task();
 }

@@ -1,0 +1,14 @@
+[1/5] cd /home/hexdev04/Documents/Projetos/vipper/Vipper/Firmware/SensorBoard/build/esp-idf/esptool_py && /home/hexdev04/.espressif/python_env/idf5.1_py3.10_env/bin/python /home/hexdev04/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /home/hexdev04/Documents/Projetos/vipper/Vipper/Firmware/SensorBoard/build/partition_table/partition-table.bin /home/hexdev04/Documents/Projetos/vipper/Vipper/Firmware/SensorBoard/build/Vipper.bin
+Vipper.bin binary size 0x2b4b0 bytes. Smallest app partition is 0x100000 bytes. 0xd4b50 bytes (83%) free.
+[2/5] Performing build step for 'bootloader'
+[1/1] cd /home/hexdev04/Documents/Projetos/vipper/Vipper/Firmware/SensorBoard/build/bootloader/esp-idf/esptool_py && /home/hexdev04/.espressif/python_env/idf5.1_py3.10_env/bin/python /home/hexdev04/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x1000 /home/hexdev04/Documents/Projetos/vipper/Vipper/Firmware/SensorBoard/build/bootloader/bootloader.bin
+Bootloader binary size 0x6720 bytes. 0x8e0 bytes (8%) free.
+[2/3] cd /home/hexdev04/esp/esp-idf/components/esptool_py && /home/hexdev04/.espressif/tools/cmake/3.24.0/bin/cmake -D IDF_PATH=/home/hexdev04/esp/esp-idf -D "SERIAL_TOOL=/home/hexdev04/.espressif/python_env/idf5.1_py3.10_env/bin/python;;/home/hexdev04/esp/esp-idf/components/esptool_py/esptool/esptool.py;--chip;esp32" -D "SERIAL_TOOL_ARGS=--before=default_reset;--after=hard_reset;write_flash;@flash_args" -D WORKING_DIRECTORY=/home/hexdev04/Documents/Projetos/vipper/Vipper/Firmware/SensorBoard/build -P /home/hexdev04/esp/esp-idf/components/esptool_py/run_serial_tool.cmake
+esptool esp32 -p /dev/ttyUSB0 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 40m --flash_size 2MB 0x1000 bootloader/bootloader.bin 0x10000 Vipper.bin 0x8000 partition_table/partition-table.bin
+esptool.py v4.3
+Serial port /dev/ttyUSB0
+
+A fatal error occurred: Could not open /dev/ttyUSB0, the port doesn't exist
+FAILED: CMakeFiles/flash /home/hexdev04/Documents/Projetos/vipper/Vipper/Firmware/SensorBoard/build/CMakeFiles/flash 
+cd /home/hexdev04/esp/esp-idf/components/esptool_py && /home/hexdev04/.espressif/tools/cmake/3.24.0/bin/cmake -D IDF_PATH=/home/hexdev04/esp/esp-idf -D "SERIAL_TOOL=/home/hexdev04/.espressif/python_env/idf5.1_py3.10_env/bin/python;;/home/hexdev04/esp/esp-idf/components/esptool_py/esptool/esptool.py;--chip;esp32" -D "SERIAL_TOOL_ARGS=--before=default_reset;--after=hard_reset;write_flash;@flash_args" -D WORKING_DIRECTORY=/home/hexdev04/Documents/Projetos/vipper/Vipper/Firmware/SensorBoard/build -P /home/hexdev04/esp/esp-idf/components/esptool_py/run_serial_tool.cmake
+ninja: build stopped: subcommand failed.

@@ -55,16 +55,14 @@ class VipperInterface(object):
         # control board
         self.control_board_add = ('192.168.4.1', 1775)
         #self.control_board_add = (socket.gethostname(), 8080)
-        self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.control_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        #self.control_socket.connect(self.control_board_add)
+        #self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        #self.control_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         # sensor board
-        #self.sensor_board_add = ('192.168.4.2', 1775)
-        self.sensor_board_add = (socket.gethostname(), 8081)
-        self.sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        #self.sensor_socket.connect(self.sensor_board_add)
+        self.sensor_board_add = ('192.168.4.2', 1775)
+        #self.sensor_board_add = (socket.gethostname(), 8081)
+        #self.sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        #self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
@@ -348,9 +346,9 @@ class VipperInterface(object):
 
         if not self.is_sensor_conn:
             self.connect_sensor()
-            self.label_loading.setGeometry(QtCore.QRect(0, 0, 0, 0))
 
         if (self.is_sensor_conn) and (self.is_control_conn):
+            self.label_loading.setGeometry(QtCore.QRect(0, 0, 0, 0))
             self.label_loading.setText(_translate("MainWindow", ""))
             self.centralwidget.setDisabled(False)
 
@@ -358,6 +356,8 @@ class VipperInterface(object):
     # Try to connect the control board
     def connect_control(self):
         try:
+            self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.control_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.control_socket.connect(self.control_board_add)
             self.is_control_conn = True
         except:
@@ -367,6 +367,8 @@ class VipperInterface(object):
     # Try to connect the sensor board
     def connect_sensor(self):
         try:
+            self.sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.sensor_socket.connect(self.sensor_board_add)
             self.is_sensor_conn = True
         except:
@@ -471,8 +473,8 @@ class VipperInterface(object):
             if (self.comp_acc[0] >= 0.1):
                 self.direction = 2
 
-        #print("raw acc, gravity, comp acc, direction")
-        #print(self.acc_data, self.gravity, self.comp_acc, self.direction)
+        #print("raw acc, gravity, comp acc, direction, gyro")
+        #print(self.acc_data, self.gravity, self.comp_acc, self.direction, self.gyro_data)
 
         # if it is going forward
         if self.direction == 1:

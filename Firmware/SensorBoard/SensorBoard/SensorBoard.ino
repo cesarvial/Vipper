@@ -20,6 +20,7 @@
 #define SOUND_DIN 25
 #define MPU_SCL 22
 #define MPU_SDA 21
+#define TAXA_DE_AMOSTRAGEM 2
 
 
 #define PINO_FRENTE 27
@@ -276,7 +277,7 @@ void trataConectadoSensor()
   switch(vipper.substate)
   {
     case WAITING_FOR_DATA:
-      if(interruptCounter > 20 && !vipper.appData.messageAvailable)
+      if(interruptCounter > TAXA_DE_AMOSTRAGEM && !vipper.appData.messageAvailable)
       {
         interruptCounter = 0;
         vipper.substate = PROCESSING_DATA;

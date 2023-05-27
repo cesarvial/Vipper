@@ -2,6 +2,9 @@ import cv2
 import pyaudio
 import wave
 import threading
+import numpy as np
+import sys
+from audiofile import *
 
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QImage, QPixmap
@@ -56,7 +59,7 @@ class WebcamCapture(QFrame):
                 rate=self.fps,  
                 frames_per_buffer=self.frames_per_buffer,  
                 input=True,
-                input_device_index=2)
+                input_device_index=1)
         self.head_input_stream = self.input_audio_head.open(format=pyaudio.paInt16,  
                 channels=1,  
                 rate=self.fps,  
@@ -101,12 +104,10 @@ class WebcamCapture(QFrame):
     def capture_message(self):
         # Read audio from stream
         frames = []
-        for i in range(0, 1):
+        for i in range(0, 2):
             data = self.msg_input_stream.read(self.frames_per_buffer, exception_on_overflow = False)
             frames.append(data)
-        #data = np.frombuffer(data, dtype=np.int16)
         # Send data
-        #print("len data:" + str(len(data)))
         file_write = wave.open('myfile.wav', 'wb')
         file_write.setframerate(self.fps)
         file_write.setnchannels(1)
@@ -114,12 +115,8 @@ class WebcamCapture(QFrame):
         file_write.writeframes(b''.join(frames))
         file_write.close()
         file_read = open('myfile.wav', 'rb')
-        final_data = file_read.read(8044)
+        final_data = file_read.read(16044)
         file_read.close()
-        #print(final_data[0:10])
-        print("final_data_len: " + str(len(final_data)))
-        #print(final_data)
-        #print("\n\n\n\n\n")
         return final_data
 
 

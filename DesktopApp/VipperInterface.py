@@ -22,11 +22,14 @@ class VipperInterface(object):
         self.temperature = 20
         self.dangerous_gas = False
 
-        # 0: inplace; 1: forward, 2:backward
-        self.direction = 0
+        # 2: inplace; 1: forward, 0:backward
+        self.direction = 2
 
         # Gyroscope order x y z
         self.gyro_data = [0, 0, 0]
+
+        # Accelerometer order x y z
+        self.acc_data = [0, 0, 0]
 
         # postion array for plotting
         self.x_pos = [0]
@@ -42,14 +45,14 @@ class VipperInterface(object):
 
         # Initiate the sockets
         # control board
-        #self.control_board_add = ('192.168.4.1', 1775)
-        self.control_board_add = (socket.gethostname(), 8080)
+        self.control_board_add = ('192.168.4.1', 1775)
+        #self.control_board_add = (socket.gethostname(), 8080)
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.control_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         #self.control_socket.connect(self.control_board_add)
 
         # sensor board
-        self.sensor_board_add = ('192.168.100.200', 1775)
+        self.sensor_board_add = ('192.168.4.2', 1775)
         #self.sensor_board_add = (socket.gethostname(), 8081)
         self.sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -234,7 +237,7 @@ class VipperInterface(object):
 
                     # 9 Bytes 
                     try:
-                        self.sensor_socket.settimeout(3)
+                        self.sensor_socket.settimeout(10)
                         sensor_data = self.sensor_socket.recv(9)
                     except:
                         print("Lost Connection to sensor board")
@@ -254,17 +257,6 @@ class VipperInterface(object):
                     else:
                         self.dangerous_gas = False
 
-                    # 01000000 - 64
-                    # 00100000 - 32
-                    # x1xxxxxx - backward
-                    # xx1xxxxx - forward
-                    if (sensor_data[0] & 32) == 32:
-                        self.direction = 1
-                    elif (sensor_data[0] & 64) == 64:
-                        self.direction = 2
-                    else:
-                        self.direction = 0
-
                     # x_gyro - bytes 1 and 2
                     self.gyro_data[0] = np.float16(struct.unpack('>h', sensor_data[1:3])[0]/1000 + 0.02)
                     if (self.gyro_data[0] <= 0.06) and (self.gyro_data[0] >= -0.06):
@@ -279,7 +271,15 @@ class VipperInterface(object):
                         self.gyro_data[2] = 0.00
 
                     # temperature - bytes 7 and 8
-                    self.temperature = np.float16(struct.unpack('>h', sensor_data[7:])[0]/100)
+                    self.temperature = np.float16(struct.unpack('>h', sensor_data[7:9])[0]/100)
+
+                    # x_acc - bytes 9 and 10
+                    self.acc_data[0] = np.float16(struct.unpack('>h', sensor_data[9:11])[0]/1000)
+                    # y_acc - bytes 11 and 12
+                    self.acc_data[1] = np.float16(struct.unpack('>h', sensor_data[11:13])[0]/1000)
+                    # z_acc - bytes 13 and 14
+                    self.acc_data[2] = np.float16(struct.unpack('>h', sensor_data[13:])[0]/1000)
+
                     # update temperature text
                     temp_string = "<html><head/><body><p><span style=\" font-size:11pt; color:#1f1f55;\">" + str(self.temperature)[0:6] + "º</span></p></body></html>"
                     self.info_temp.setText(_translate("MainWindow", temp_string))
@@ -300,21 +300,10 @@ class VipperInterface(object):
                 else:
                     try:
                         message = self.webcam_frame.capture_message()
-                        #print("message: " + str(len(message)))
                         # msg size is 16044
-                        print(len(message))
-                        self.sensor_socket.send(message)
                         i = 0
-                        '''while (i*100 < 8044):
-                            begin = i*100
-                            end = (i + 1)*100
-                            if begin == 8000:
-                                end = 8044
-                            #print(len(message[begin:end]))
-                            self.sensor_socket.send(message[begin:end])
-                            i += 1
-                            time.sleep(0.05)'''
-                        #self.mute_mic()
+                        padding = 56 * b'0'
+                        self.sensor_socket.send(message+padding)
                     except:
                         #print("Lost connection to sensor board.")
                         self.is_sensor_conn = False
@@ -359,6 +348,7 @@ class VipperInterface(object):
         try:
             self.control_socket.connect(self.control_board_add)
             self.is_control_conn = True
+            #print("Control connected")
         except:
             #print("Control not connected")
             self.is_control_conn = False
@@ -369,6 +359,7 @@ class VipperInterface(object):
         try:
             self.sensor_socket.connect(self.sensor_board_add)
             self.is_sensor_conn = True
+            #print("Sensor connected")
         except:
             #print("Sensor not connected")
             self.is_sensor_conn = False
@@ -386,7 +377,6 @@ class VipperInterface(object):
         time.sleep(0.5)
         self.btn_backward.setDisabled(False)
         self.btn_forward.setDisabled(False)
-        self.direction = 0
         
 
     # Send message to go backward
@@ -401,7 +391,6 @@ class VipperInterface(object):
         time.sleep(0.5)
         self.btn_backward.setDisabled(False)
         self.btn_forward.setDisabled(False)
-        self.direction = 0
     
 
     # mute/unmute the microphone and update the UI
@@ -457,11 +446,14 @@ class VipperInterface(object):
             self.update_mapping_plot()
 
         # if it is going backwards
-        elif self.direction == 2:
-            self.x_pos.pop()
-            self.y_pos.pop()
-            self.z_pos.pop()
-            self.update_mapping_plot()
+        elif self.direction == 0:
+            try:
+                self.x_pos.pop()
+                self.y_pos.pop()
+                self.z_pos.pop()
+                self.update_mapping_plot()
+            except:
+                print("no more positions to pop")
 
     
     # Function to calculate the rotation matrix with the gyro data

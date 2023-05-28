@@ -308,7 +308,7 @@ class VipperInterface(object):
                     gas_string = "<html><head/><body><p><span style=\" font-size:10pt; color:#" + color + ";\">" + gas + "</span></p></body></html>"
                     self.info_gas.setText(_translate("MainWindow", gas_string))
                     self.info_gas_m.setText(_translate("MainWindow", gas_string))
-                    #time.sleep(0.009)
+                    time.sleep(0.019)
                 # If not muted, send all microphone to the sensor socket
                 else:
                     try:
@@ -575,3 +575,6 @@ class VipperInterface(object):
         self.mapping_axes.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
         self.mapping_axes.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
+
+    def closeEvent(self):
+        self.webcam_frame.closeEvent()

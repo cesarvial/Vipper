@@ -12,10 +12,11 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from WebcamCapture import WebcamCapture
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg  
-import numpy as np  
+import numpy as np
 import time
 import socket
 import struct
+from datetime import datetime
 
 class VipperInterface(object):
     def __init__(self):
@@ -27,17 +28,6 @@ class VipperInterface(object):
 
         # Gyroscope order x y z
         self.gyro_data = [0, 0, 0]
-
-        '''# Accelerometer order x y z
-        #self.acc_data = [0, 0, 0]
-
-        # Compensated acceleration
-        #self.comp_acc = [0, 0, 0]
-
-        #self.gravity_taken = False
-
-        # Gravity acceleration order x y z
-        #self.gravity = [0, 0, 0]'''
 
         # how many steps it still have to take
         self.steps_to_do = 0
@@ -58,14 +48,10 @@ class VipperInterface(object):
         # control board
         self.control_board_add = ('192.168.4.1', 1775)
         #self.control_board_add = (socket.gethostname(), 8080)
-        #self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        #self.control_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         # sensor board
         self.sensor_board_add = ('192.168.4.2', 1775)
         #self.sensor_board_add = (socket.gethostname(), 8081)
-        #self.sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        #self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
@@ -191,7 +177,6 @@ class VipperInterface(object):
         self.actionExit = QtWidgets.QAction(MainWindow)
         self.actionExit.setObjectName("actionExit")
 
-        #self.webcam_frame.start_audio_stream()
         self.retranslateUi(MainWindow)
         self.tabWidget.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -268,30 +253,13 @@ class VipperInterface(object):
 
                     # x_gyro - bytes 1 and 2
                     self.gyro_data[1] = np.float16(struct.unpack('>h', sensor_data[1:3])[0]/1000 + 0.02)*-1
-                    #if (self.gyro_data[1] <= 0.06) and (self.gyro_data[1] >= -0.06):
-                    #    self.gyro_data[1] = 0.00
                     # y_gyro - bytes 3 and 4
                     self.gyro_data[2] = np.float16(struct.unpack('>h', sensor_data[3:5])[0]/1000 - 0.05)*-1
-                    #if (self.gyro_data[2] <= 0.06) and (self.gyro_data[2] >= -0.06):
-                    #    self.gyro_data[2] = 0.00
                     # z_gyro - bytes 5 and 6
                     self.gyro_data[0] = np.float16(struct.unpack('>h', sensor_data[5:7])[0]/1000 - 0.01)*-1
-                    #if (self.gyro_data[0] <= 0.06) and (self.gyro_data[0] >= -0.06):
-                    #    self.gyro_data[0] = 0.00
 
                     # temperature - bytes 7 and 8
                     self.temperature = np.float16(struct.unpack('>h', sensor_data[7:9])[0]/100)
-
-                    '''# y_acc - bytes 9 and 10
-                    self.acc_data[1] = np.float16(struct.unpack('>h', sensor_data[9:11])[0]/1000)*-1
-                    # z_acc - bytes 11 and 12
-                    self.acc_data[2] = np.float16(struct.unpack('>h', sensor_data[11:13])[0]/1000)*-1
-                    # x_acc - bytes 13 and 14
-                    self.acc_data[0] = np.float16(struct.unpack('>h', sensor_data[13:15])[0]/1000)*-1
-
-                    if not self.gravity_taken:
-                        self.gravity = np.copy(self.acc_data)
-                        self.gravity_taken = True'''
 
                     # update temperature text
                     temp_string = "<html><head/><body><p><span style=\" font-size:11pt; color:#1f1f55;\">" + str(self.temperature)[0:6] + "º</span></p></body></html>"
@@ -314,11 +282,11 @@ class VipperInterface(object):
                     try:
                         message = self.webcam_frame.capture_message()
                         # msg size is 16044
-                        i = 0
+                        # i = 0
                         padding = 56 * b'0'
                         self.sensor_socket.send(message+padding)
                     except:
-                        print("Lost connection to sensor board.")
+                        #print("Lost connection to sensor board.")
                         self.is_sensor_conn = False
 
 
@@ -386,7 +354,7 @@ class VipperInterface(object):
         try:
             self.control_socket.send(b'\x00')
         except:
-            print("Lost connection to control board.")
+            #print("Lost connection to control board.")
             self.is_control_conn = False
         time.sleep(0.5)
         self.btn_backward.setDisabled(False)
@@ -401,7 +369,7 @@ class VipperInterface(object):
         try:
             self.control_socket.send(b'\xff')
         except:
-            print("Lost connection to control board.")
+            #print("Lost connection to control board.")
             self.is_control_conn = False
         time.sleep(0.5)
         self.btn_backward.setDisabled(False)
@@ -458,37 +426,6 @@ class VipperInterface(object):
         self.velocity[0] = rotation[0][0] * vx + rotation[0][1] * vy + rotation[0][2] * vz
         self.velocity[1] = rotation[1][0] * vx + rotation[1][1] * vy + rotation[1][2] * vz
         self.velocity[2] = rotation[2][0] * vx + rotation[2][1] * vy + rotation[2][2] * vz
-        '''gx = self.gravity[0]
-        gy = self.gravity[1]
-        gz = self.gravity[2]
-        self.gravity[0] = rotation[0][0] * gx + rotation[0][1] * gy + rotation[0][2] * gz
-        self.gravity[1] = rotation[1][0] * gx + rotation[1][1] * gy + rotation[1][2] * gz
-        self.gravity[2] = rotation[2][0] * gx + rotation[2][1] * gy + rotation[2][2] * gz 
-        self.comp_acc[0] = self.acc_data[0] - self.gravity[0]
-        self.comp_acc[1] = self.acc_data[1] - self.gravity[1]
-        self.comp_acc[2] = self.acc_data[2] - self.gravity[2]
-
-        # if it is in place
-        if (self.direction == 2):
-            # going forward
-            if (self.comp_acc[0] >= 0.1):
-                self.direction = 1
-            # going backward
-            #elif (self.comp_acc[0] <= -0.1):
-                #self.direction = 0
-        # if it is going forward
-        if (self.direction == 1):
-            # stop 
-            if (self.comp_acc[0] <= -0.1):
-                self.direction = 2
-        # if it is going backward
-        #if (self.direction == 0):
-            # stop
-            #if (self.comp_acc[0] >= 0.1):
-                #self.direction = 2
-
-        #print("raw acc, gravity, comp acc, direction, gyro")
-        #print(self.acc_data, self.gravity, self.comp_acc, self.direction, self.gyro_data)'''
 
         # if it is going forward
         if self.steps_to_do > 0:
@@ -574,6 +511,25 @@ class VipperInterface(object):
         self.mapping_axes.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
         self.mapping_axes.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
         self.mapping_axes.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
+
+    
+    # Function to write the log data of the Vipper
+    def log_file(self):
+        line = ""
+        with open("Vipper_log.txt", "w") as f:
+            while (True):
+                line = "DATA "
+                line += datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                line += " --- "
+                line += "Temperature(C): " + str(self.temperature)
+                line += " --- "
+                line += "Gas Presence: " + str(self.dangerous_gas)
+                line += " --- "
+                line += "VipperPosition (x, y, z): [" + self.x_pos[len(self.x_pos) - 1] + ","
+                line += self.y_pos[len(self.y_pos) - 1] + "," + self.z_pos[len(self.z_pos) - 1]
+                line += "] ---\n"
+                f.write(line)
+                time.sleep(0.5)
 
 
     def closeEvent(self):

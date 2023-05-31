@@ -18,6 +18,9 @@ class MyMainWindow(QMainWindow):
         # Thread for the audio coming from the webcam
         self.audio_thread = threading.Thread(target=self.vipper_window.audio_loop, daemon=True)
         self.audio_thread.start()
+        # Thread for the log being written
+        self.log_thread = threading.Thread(target=self.vipper_window.log_file, daemon=True)
+        self.log_thread.start()
 
     def closeEvent(self, event):
         self.vipper_window.closeEvent()

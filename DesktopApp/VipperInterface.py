@@ -232,7 +232,7 @@ class VipperInterface(object):
                     # 9 Bytes 
                     try:
                         self.sensor_socket.settimeout(10)
-                        sensor_data = self.sensor_socket.recv(15)
+                        sensor_data = self.sensor_socket.recv(9)
                     except:
                         print("Lost Connection to sensor board")
                         self.is_sensor_conn = False
@@ -525,8 +525,8 @@ class VipperInterface(object):
                 line += " --- "
                 line += "Gas Presence: " + str(self.dangerous_gas)
                 line += " --- "
-                line += "VipperPosition (x, y, z): [" + self.x_pos[len(self.x_pos) - 1] + ","
-                line += self.y_pos[len(self.y_pos) - 1] + "," + self.z_pos[len(self.z_pos) - 1]
+                line += "VipperPosition (x, y, z): [" + str(self.x_pos[len(self.x_pos) - 1]) + ","
+                line += str(self.y_pos[len(self.y_pos) - 1]) + "," + str(self.z_pos[len(self.z_pos) - 1])
                 line += "] ---\n"
                 f.write(line)
                 time.sleep(0.5)

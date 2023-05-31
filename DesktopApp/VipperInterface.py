@@ -196,9 +196,9 @@ class VipperInterface(object):
         self.info_temp.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:11pt; color:#1f1f55;\">20º</span></p></body></html>"))
         self.info_gas.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:10pt; color:#ff0000;\">Detected</span></p></body></html>"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_webcam), _translate("MainWindow", "Camera"))
-        self.btn_forward_m.setText(_translate("MainWindow", "Forward"))
+        self.btn_forward_m.setText(_translate("MainWindow", "Unroll"))
         self.btn_forward_m.setShortcut(_translate("MainWindow", "Up"))
-        self.btn_backward_m.setText(_translate("MainWindow", "Backward"))
+        self.btn_backward_m.setText(_translate("MainWindow", "Roll"))
         self.btn_backward_m.setShortcut(_translate("MainWindow", "Down"))
         self.btn_microphone_m.setText(_translate("MainWindow", "Unmute"))
         self.btn_microphone_m.setShortcut(_translate("MainWindow", "Space"))
@@ -276,6 +276,18 @@ class VipperInterface(object):
                     gas_string = "<html><head/><body><p><span style=\" font-size:10pt; color:#" + color + ";\">" + gas + "</span></p></body></html>"
                     self.info_gas.setText(_translate("MainWindow", gas_string))
                     self.info_gas_m.setText(_translate("MainWindow", gas_string))
+
+                    # enable/disable buttons depending on steps
+                    if self.steps_to_do >= 4 or self.steps_to_do <= -4:
+                        self.btn_forward.setDisabled(True)
+                        self.btn_forward_m.setDisabled(True)
+                        self.btn_backward.setDisabled(True)
+                        self.btn_backward_m.setDisabled(True)
+                    else: 
+                        self.btn_forward.setDisabled(False)
+                        self.btn_forward_m.setDisabled(False)
+                        self.btn_backward.setDisabled(False)
+                        self.btn_backward_m.setDisabled(False)
                     time.sleep(0.019)
                 # If not muted, send all microphone to the sensor socket
                 else:
@@ -348,32 +360,22 @@ class VipperInterface(object):
 
     # Send message to go forward
     def go_forward(self):
-        self.btn_backward.setDisabled(True)
-        self.btn_forward.setDisabled(True)
         self.steps_to_do += 10
         try:
             self.control_socket.send(b'\x00')
         except:
             #print("Lost connection to control board.")
             self.is_control_conn = False
-        time.sleep(0.5)
-        self.btn_backward.setDisabled(False)
-        self.btn_forward.setDisabled(False)
         
 
     # Send message to go backward
     def go_backward(self):
-        self.btn_backward.setDisabled(True)
-        self.btn_forward.setDisabled(True)
         self.steps_to_do -= 10
         try:
             self.control_socket.send(b'\xff')
         except:
             #print("Lost connection to control board.")
             self.is_control_conn = False
-        time.sleep(0.5)
-        self.btn_backward.setDisabled(False)
-        self.btn_forward.setDisabled(False)
     
 
     # mute/unmute the microphone and update the UI
@@ -403,7 +405,7 @@ class VipperInterface(object):
         while (True):
             if (self.is_sensor_conn and self.is_control_conn and self.muted):
                 self.update_position()
-                time.sleep(0.01)
+                time.sleep(0.019)
 
 
     def audio_loop(self):
@@ -422,7 +424,6 @@ class VipperInterface(object):
         vx = self.velocity[0]
         vy = self.velocity[1]
         vz = self.velocity[2]
-        self.update_mapping_plot()
         self.velocity[0] = rotation[0][0] * vx + rotation[0][1] * vy + rotation[0][2] * vz
         self.velocity[1] = rotation[1][0] * vx + rotation[1][1] * vy + rotation[1][2] * vz
         self.velocity[2] = rotation[2][0] * vx + rotation[2][1] * vy + rotation[2][2] * vz
@@ -529,7 +530,7 @@ class VipperInterface(object):
                 line += str(self.y_pos[len(self.y_pos) - 1]) + "," + str(self.z_pos[len(self.z_pos) - 1])
                 line += "] ---\n"
                 f.write(line)
-                time.sleep(0.5)
+                time.sleep(1)
 
 
     def closeEvent(self):

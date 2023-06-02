@@ -34,7 +34,7 @@ def sensor_board():
             #print("sending data")
             #msg = [random.randint(0, 9), random.randint(0, 9), random.randint(0, 9), random.randint(0, 9), random.randint(0, 9), 
             #       random.randint(0, 9), random.randint(0, 9), random.randint(0, 9), random.randint(0, 9)]
-            msg = b'\xff\x25\x00\x26\x00\x27\x00\x28\x00\x29\x00\x30\x00\x31\x00'
+            msg = b'\xff\x25\x00\x26\x00\x27\x00\x28\x00'
             try:
                 conn.send(msg)
             except:

@@ -39,7 +39,7 @@ class WebcamCapture(QFrame):
                 rate=self.fps,  
                 frames_per_buffer=self.frames_per_buffer,  
                 input=True,
-                input_device_index=1)
+                input_device_index=2)
         #self.head_input_stream = self.input_audio_head.open(format=pyaudio.paInt16,  
         #        channels=1,  
         #        rate=self.fps,  

@@ -47,10 +47,12 @@ class VipperInterface(object):
         # Initiate the sockets
         # control board
         self.control_board_add = ('192.168.4.1', 1775)
+        #self.control_board_add = ('192.168.1.1', 1775)
         #self.control_board_add = (socket.gethostname(), 8080)
 
         # sensor board
         self.sensor_board_add = ('192.168.4.2', 1775)
+        #self.sensor_board_add = ('192.168.1.48', 1775)
         #self.sensor_board_add = (socket.gethostname(), 8081)
 
     def setupUi(self, MainWindow):

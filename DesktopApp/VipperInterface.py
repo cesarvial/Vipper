@@ -17,11 +17,14 @@ import time
 import socket
 import struct
 from datetime import datetime
+import os.path
 
 class VipperInterface(object):
     def __init__(self):
         self.temperature = 20
         self.dangerous_gas = False
+
+        self.read_file = False
 
         # 2: inplace; 1: forward, 0:backward
         self.direction = 2
@@ -38,7 +41,7 @@ class VipperInterface(object):
         self.z_pos = [0]
 
         # velocity order x y z
-        self.velocity = [0.01, 0, 0]
+        self.velocity = [0.008, 0, 0]
 
         self.muted = True
         self.is_control_conn = False
@@ -222,6 +225,25 @@ class VipperInterface(object):
         _translate = QtCore.QCoreApplication.translate
         sensor_data = None
 
+        # reload data
+        if os.path.exists("Vipper_log.txt"):
+            try:
+                with open("Vipper_log.txt", "r") as f:
+                    lines = f.readlines()
+                for i in range(1, len(lines)):
+                    positions = lines[i].split(";")[4].replace("]", "").replace("[", "").split(",")
+                    self.x_pos.append(float(positions[0]))
+                    self.y_pos.append(float(positions[1]))
+                    self.z_pos.append(float(positions[2]))
+                velocities = lines[len(lines) - 1].split(";")[5].replace("]", "").replace("[", "").split(",")
+                self.velocity[0] = float(velocities[0])
+                self.velocity[1] = float(velocities[1])
+                self.velocity[2] = float(velocities[2])
+                self.update_mapping_plot()
+            except:
+                pass
+        self.read_file = True
+
         while(1):
             # In case some board is not connected, re-stablish connection
             if (not self.is_sensor_conn) or (not self.is_control_conn):
@@ -254,15 +276,14 @@ class VipperInterface(object):
                         self.dangerous_gas = False
 
                     # x_gyro - bytes 1 and 2
-                    self.gyro_data[1] = np.float16(struct.unpack('>h', sensor_data[1:3])[0]/1000 + 0.02)*-1
+                    self.gyro_data[1] = round(np.float16(struct.unpack('>h', sensor_data[1:3])[0]/1000) + 0.021, 5)*-1
                     # y_gyro - bytes 3 and 4
-                    self.gyro_data[2] = np.float16(struct.unpack('>h', sensor_data[3:5])[0]/1000 - 0.05)*-1
+                    self.gyro_data[2] = round(np.float16(struct.unpack('>h', sensor_data[3:5])[0]/1000) - 0.047, 5)*-1
                     # z_gyro - bytes 5 and 6
-                    self.gyro_data[0] = np.float16(struct.unpack('>h', sensor_data[5:7])[0]/1000 - 0.01)*-1
-
+                    self.gyro_data[0] = round(np.float16(struct.unpack('>h', sensor_data[5:7])[0]/1000) - 0.007, 5)*-1
+                    #print(self.gyro_data)
                     # temperature - bytes 7 and 8
                     self.temperature = np.float16(struct.unpack('>h', sensor_data[7:9])[0]/100)
-
                     # update temperature text
                     temp_string = "<html><head/><body><p><span style=\" font-size:11pt; color:#1f1f55;\">" + str(self.temperature)[0:6] + "º</span></p></body></html>"
                     self.info_temp.setText(_translate("MainWindow", temp_string))
@@ -372,7 +393,6 @@ class VipperInterface(object):
 
     # Send message to go backward
     def go_backward(self):
-        self.steps_to_do -= 10
         try:
             self.control_socket.send(b'\xff')
         except:
@@ -441,24 +461,11 @@ class VipperInterface(object):
             self.z_pos.append(self.z_pos[len(self.z_pos) - 1] + self.velocity[2] * delta_t)
             self.update_mapping_plot()
 
-        # if it is going backwards
-        elif self.steps_to_do < 0: 
-            self.steps_to_do += 1
-            if len(self.x_pos) > 1:
-                try:
-                    self.x_pos.pop()
-                    self.y_pos.pop()
-                    self.z_pos.pop()
-                    self.update_mapping_plot()
-                except:
-                    #print("no more positions to pop")
-                    pass
-
     
     # Function to calculate the rotation matrix with the gyro data
     def calc_rotation_matrix(self, omega_x, omega_y, omega_z):
         # constant because it only gets data each tenth of a second
-        delta_t = 0.1
+        delta_t = 0.02
         # Calculate the sin and cosine of the angles
         cosx = np.cos(omega_x * delta_t)
         cosy = np.cos(omega_y * delta_t)
@@ -518,21 +525,29 @@ class VipperInterface(object):
     
     # Function to write the log data of the Vipper
     def log_file(self):
-        line = ""
-        with open("Vipper_log.txt", "w") as f:
-            while (True):
-                line = "DATA "
-                line += datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                line += " --- "
-                line += "Temperature(C): " + str(self.temperature)
-                line += " --- "
-                line += "Gas Presence: " + str(self.dangerous_gas)
-                line += " --- "
-                line += "VipperPosition (x, y, z): [" + str(self.x_pos[len(self.x_pos) - 1]) + ","
-                line += str(self.y_pos[len(self.y_pos) - 1]) + "," + str(self.z_pos[len(self.z_pos) - 1])
-                line += "] ---\n"
-                f.write(line)
-                time.sleep(1)
+        while not self.read_file:
+            x = 1
+        line = "DATA;DATE_TIME;TEMPERATURE;GAS_PRESENCE;POS(XYZ);VELOCITY(XYZ)\n"
+        f = open("Vipper_log.txt", "w")
+        f.write(line)
+        f.close()
+        while (True):
+            f = open("Vipper_log.txt", "a")
+            line = "DATA;"
+            line += datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            line += ";"
+            line += str(self.temperature)
+            line += ";"
+            line += str(self.dangerous_gas)
+            line += ";"
+            line += "[" + str(self.x_pos[len(self.x_pos) - 1]) + ","
+            line += str(self.y_pos[len(self.y_pos) - 1]) + "," + str(self.z_pos[len(self.z_pos) - 1])
+            line += "];"
+            line += str(self.velocity)
+            line += "\n"
+            f.write(line)
+            f.close()
+            time.sleep(1)
 
 
     def closeEvent(self):

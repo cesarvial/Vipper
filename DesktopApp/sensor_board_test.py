@@ -1,26 +1,42 @@
 # Script to test the communication modules of the desktop app
 import socket
 import time
-import random
+import wave
 
 def sensor_board():
+    #output_audio = pyaudio.PyAudio() 
+    #output_stream = output_audio.open(format=pyaudio.paFloat32,
+    #            channels=1,
+    #            rate=8000,
+    #            output=True,
+    #            output_device_index=0)
     s = socket.socket()
-    s.connect((socket.gethostname(), 8081))
-    r = random.random()
+    s.bind((socket.gethostname(), 8081))
+    s.listen(1)
+    conn, add = s.accept()
+    print(add)
     data = None
     while (1):
         time.sleep(0.1)
         data = None
-        s.settimeout(0)
+        conn.settimeout(0)
         try:
-            data = s.recv(8192)
-            print(len(data))
+            data = conn.recv(16044)
+            file_write = wave.open('testestest.wav', 'wb')
+            file_write.setframerate(8000)
+            file_write.setnchannels(1)
+            file_write.setsampwidth(2)
+            file_write.writeframes(data)
+            file_write.close()
+            #output_stream.write(data)
+            #print(data)
         except Exception as e :
             print("sending data")
-            msg = [random.randint(0, 9), random.randint(0, 9), random.randint(0, 9), random.randint(0, 9), random.randint(0, 9), 
-                   random.randint(0, 9), random.randint(0, 9), random.randint(0, 9), random.randint(0, 9)]
+            #msg = [random.randint(0, 9), random.randint(0, 9), random.randint(0, 9), random.randint(0, 9), random.randint(0, 9), 
+            #       random.randint(0, 9), random.randint(0, 9), random.randint(0, 9), random.randint(0, 9)]
+            msg = b'\xff\x25\x00\x26\x00\x27\x00\x28\x00'
             try:
-                s.send(bytearray(msg))
+                conn.send(msg)
             except:
                 print("Error sending")
 

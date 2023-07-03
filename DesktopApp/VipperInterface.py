@@ -13,38 +13,47 @@ from WebcamCapture import WebcamCapture
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg  
 import numpy as np  
-import random
 import time
 import socket
+import struct
 
 class VipperInterface(object):
     def __init__(self):
         self.temperature = 20
         self.dangerous_gas = False
+
         # 0: inplace; 1: forward, 2:backward
         self.direction = 0
+
         # Gyroscope order x y z
         self.gyro_data = [0, 0, 0]
+
         # postion array for plotting
         self.x_pos = [0]
         self.y_pos = [0]
         self.z_pos = [0]
+
         # velocity order x y z
-        self.velocity = [1, 0, 0]
+        self.velocity = [0.01, 0, 0]
+
         self.muted = True
         self.is_control_conn = False
         self.is_sensor_conn = False
+
         # Initiate the sockets
         # control board
+        #self.control_board_add = ('192.168.4.1', 1775)
+        self.control_board_add = (socket.gethostname(), 8080)
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.control_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.control_socket.bind((socket.gethostname(), 8080))
-        self.control_socket.listen(1)
+        #self.control_socket.connect(self.control_board_add)
+
         # sensor board
+        self.sensor_board_add = ('192.168.100.200', 1775)
+        #self.sensor_board_add = (socket.gethostname(), 8081)
         self.sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sensor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sensor_socket.bind((socket.gethostname(), 8081))
-        self.sensor_socket.listen(1)
+        #self.sensor_socket.connect(self.sensor_board_add)
 
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
@@ -148,7 +157,6 @@ class VipperInterface(object):
         self.mapping_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.mapping_frame.setFrameShadow(QtWidgets.QFrame.Raised)
         self.mapping_frame.setObjectName("mapping_frame")
-
         self.mapping_label = QtWidgets.QLabel(self.tab_mapping)
         self.mapping_label.setGeometry(QtCore.QRect(220, 15, 240, 30))
         self.mapping_label.setObjectName("mapping_label")
@@ -180,9 +188,9 @@ class VipperInterface(object):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "Vipper - version 1.0"))
         self.label_loading.setText(_translate("MainWindow", ""))
-        self.btn_forward.setText(_translate("MainWindow", "Forward"))
+        self.btn_forward.setText(_translate("MainWindow", "Unroll"))
         self.btn_forward.setShortcut(_translate("MainWindow", "Up"))
-        self.btn_backward.setText(_translate("MainWindow", "Backward"))
+        self.btn_backward.setText(_translate("MainWindow", "Roll"))
         self.btn_backward.setShortcut(_translate("MainWindow", "Down"))
         self.title_temp.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:12pt; font-weight:600;\">Temp ºC</span></p></body></html>"))
         self.btn_microphone.setText(_translate("MainWindow", "Unmute"))
@@ -213,75 +221,109 @@ class VipperInterface(object):
     
     def update_data(self):
         _translate = QtCore.QCoreApplication.translate
-        i = 0
-        y_m = 0
-        z_m = 0
         sensor_data = None
+
         while(1):
             # In case some board is not connected, re-stablish connection
             if (not self.is_sensor_conn) or (not self.is_control_conn):
                 self.loading()
-            if self.muted:
-                self.tab_mapping.setDisabled(False)
-                # ==================== Random data ========================
-                if self.dangerous_gas:
-                    self.temperature += random.random()
-                    self.gyro_data[0] += random.random()/100
-                    self.gyro_data[1] += random.random()/100
-                    self.gyro_data[2] += random.random()/100
-                else:
-                    self.temperature -= random.random()
-                    self.gyro_data[0] -= random.random()/100
-                    self.gyro_data[1] -= random.random()/100
-                    self.gyro_data[2] -= random.random()/100
-                # get gas
-                self.dangerous_gas = bool(random.getrandbits(1))
-                # ==================== Actual data ======================== 
-                # 9 Bytes 
-                try:
-                    self.sensor_conn.settimeout(3)
-                    sensor_data = self.sensor_conn.recv(9)
-                except:
-                    print("Lost Connection to sensor board")
-                    self.is_sensor_conn = False
-                #print(sensor_data)
-                if sensor_data == b'':
-                    print("Lost Connection to sensor board")
-                    self.is_sensor_conn = False
-                # gas/movement - byte 0
-                # x_gyro - bytes 1 and 2
-                # y_gyro - bytes 3 and 4
-                # z_gyro - bytes 5 and 6
-                # temperature - bytes 7 and 8
-                # updte position
-                self.update_position()
-                # update temperature
-                temp_string = "<html><head/><body><p><span style=\" font-size:11pt; color:#1f1f55;\">" + str(self.temperature)[0:6] + "º</span></p></body></html>"
-                self.info_temp.setText(_translate("MainWindow", temp_string))
-                self.info_temp_m.setText(_translate("MainWindow", temp_string))
-                # update dangerous gas
-                if self.dangerous_gas:
-                    color = "ff0000"
-                    gas = "Detected"
-                else:
-                    color = "00ff00"
-                    gas = "Not detected"
-                gas_string = "<html><head/><body><p><span style=\" font-size:10pt; color:#" + color + ";\">" + gas + "</span></p></body></html>"
-                self.info_gas.setText(_translate("MainWindow", gas_string))
-                self.info_gas_m.setText(_translate("MainWindow", gas_string))
-                time.sleep(0.1)
             else:
-                try:
-                    message = self.webcam_frame.capture_message()
-                    self.sensor_conn.send(message)
-                except:
-                    print("Lost connection to sensor board.")
-                    self.is_sensor_conn = False
+                # if muted, receive and process all data
+                if self.muted:
+                    self.tab_mapping.setDisabled(False)
+
+                    # 9 Bytes 
+                    try:
+                        self.sensor_socket.settimeout(3)
+                        sensor_data = self.sensor_socket.recv(9)
+                    except:
+                        print("Lost Connection to sensor board")
+                        self.is_sensor_conn = False
+                        continue
+
+                    if sensor_data == b'':
+                        print("Lost Connection to sensor board")
+                        self.is_sensor_conn = False
+                        continue
+
+                    # gas/movement - byte 0
+                    # 10000000 - 128
+                    # 1xxxxxxx - dangerous gas // 0xxxxxxx - no dangerous gas
+                    if (sensor_data[0] & 128) == 128:
+                        self.dangerous_gas = True
+                    else:
+                        self.dangerous_gas = False
+
+                    # 01000000 - 64
+                    # 00100000 - 32
+                    # x1xxxxxx - backward
+                    # xx1xxxxx - forward
+                    if (sensor_data[0] & 32) == 32:
+                        self.direction = 1
+                    elif (sensor_data[0] & 64) == 64:
+                        self.direction = 2
+                    else:
+                        self.direction = 0
+
+                    # x_gyro - bytes 1 and 2
+                    self.gyro_data[0] = np.float16(struct.unpack('>h', sensor_data[1:3])[0]/1000 + 0.02)
+                    if (self.gyro_data[0] <= 0.06) and (self.gyro_data[0] >= -0.06):
+                        self.gyro_data[0] = 0.00
+                    # y_gyro - bytes 3 and 4
+                    self.gyro_data[1] = np.float16(struct.unpack('>h', sensor_data[3:5])[0]/1000 - 0.05)
+                    if (self.gyro_data[1] <= 0.06) and (self.gyro_data[1] >= -0.06):
+                        self.gyro_data[1] = 0.00
+                    # z_gyro - bytes 5 and 6
+                    self.gyro_data[2] = np.float16(struct.unpack('>h', sensor_data[5:7])[0]/1000 - 0.01)
+                    if (self.gyro_data[2] <= 0.06) and (self.gyro_data[2] >= -0.06):
+                        self.gyro_data[2] = 0.00
+
+                    # temperature - bytes 7 and 8
+                    self.temperature = np.float16(struct.unpack('>h', sensor_data[7:])[0]/100)
+                    # update temperature text
+                    temp_string = "<html><head/><body><p><span style=\" font-size:11pt; color:#1f1f55;\">" + str(self.temperature)[0:6] + "º</span></p></body></html>"
+                    self.info_temp.setText(_translate("MainWindow", temp_string))
+                    self.info_temp_m.setText(_translate("MainWindow", temp_string))
+
+                    # update dangerous gas text
+                    if self.dangerous_gas:
+                        color = "ff0000"
+                        gas = "Detected"
+                    else:
+                        color = "00ff00"
+                        gas = "Not detected"
+                    gas_string = "<html><head/><body><p><span style=\" font-size:10pt; color:#" + color + ";\">" + gas + "</span></p></body></html>"
+                    self.info_gas.setText(_translate("MainWindow", gas_string))
+                    self.info_gas_m.setText(_translate("MainWindow", gas_string))
+                    time.sleep(0.08)
+                # If not muted, send all microphone to the sensor socket
+                else:
+                    try:
+                        message = self.webcam_frame.capture_message()
+                        #print("message: " + str(len(message)))
+                        # msg size is 16044
+                        print(len(message))
+                        self.sensor_socket.send(message)
+                        i = 0
+                        '''while (i*100 < 8044):
+                            begin = i*100
+                            end = (i + 1)*100
+                            if begin == 8000:
+                                end = 8044
+                            #print(len(message[begin:end]))
+                            self.sensor_socket.send(message[begin:end])
+                            i += 1
+                            time.sleep(0.05)'''
+                        #self.mute_mic()
+                    except:
+                        #print("Lost connection to sensor board.")
+                        self.is_sensor_conn = False
 
 
     def loading(self):
         _translate = QtCore.QCoreApplication.translate
         loading_text = "Establishing Connection\n"
+        
         if not self.is_control_conn:
             loading_text += "Control Board - Not Connected\n"
         else:
@@ -290,41 +332,54 @@ class VipperInterface(object):
             loading_text += "Sensor Board - Not Connected"
         else:
             loading_text += "Sensor Board - Connected"
+
         self.centralwidget.setDisabled(True)
         self.label_loading.setStyleSheet("background-color: White")
         self.label_loading.setAlignment(QtCore.Qt.AlignCenter)
         self.label_loading.setGeometry(QtCore.QRect(0, 0, 1000, 600))
         self.label_loading.setText(_translate("MainWindow", loading_text))
+
         if not self.is_control_conn:
             self.connect_control()
-        loading_text = loading_text.replace("Control Board - Not Connected\n", "Control Board - Connected\n")
-        self.label_loading.setText(_translate("MainWindow", loading_text))
+        if self.is_control_conn:
+            loading_text = loading_text.replace("Control Board - Not Connected\n", "Control Board - Connected\n")
+            self.label_loading.setText(_translate("MainWindow", loading_text))
+
         if not self.is_sensor_conn:
             self.connect_sensor()
             self.label_loading.setGeometry(QtCore.QRect(0, 0, 0, 0))
-        self.label_loading.setText(_translate("MainWindow", ""))
-        self.centralwidget.setDisabled(False)
+
+        if (self.is_sensor_conn) and (self.is_control_conn):
+            self.label_loading.setText(_translate("MainWindow", ""))
+            self.centralwidget.setDisabled(False)
 
 
+    # Try to connect the control board
     def connect_control(self):
-        self.control_conn, control_addr = self.control_socket.accept()
-        print("accepted control_conn: " + str(control_addr))
-        self.is_control_conn = True
+        try:
+            self.control_socket.connect(self.control_board_add)
+            self.is_control_conn = True
+        except:
+            #print("Control not connected")
+            self.is_control_conn = False
 
 
+    # Try to connect the sensor board
     def connect_sensor(self):
-        self.sensor_conn, sensor_addr = self.sensor_socket.accept()
-        print("accepted sensor_conn: " + str(sensor_addr))
-        self.is_sensor_conn = True
+        try:
+            self.sensor_socket.connect(self.sensor_board_add)
+            self.is_sensor_conn = True
+        except:
+            #print("Sensor not connected")
+            self.is_sensor_conn = False
 
 
+    # Send message to go forward
     def go_forward(self):
-        # Send message to go forward
-        self.direction = 1
         self.btn_backward.setDisabled(True)
         self.btn_forward.setDisabled(True)
         try:
-            self.control_conn.send(b'\x00')
+            self.control_socket.send(b'\x00')
         except:
             print("Lost connection to control board.")
             self.is_control_conn = False
@@ -334,13 +389,12 @@ class VipperInterface(object):
         self.direction = 0
         
 
+    # Send message to go backward
     def go_backward(self):
-        # Send message to go backward
-        self.direction = 2
         self.btn_backward.setDisabled(True)
         self.btn_forward.setDisabled(True)
         try:
-            self.control_conn.send(b'\xff')
+            self.control_socket.send(b'\xff')
         except:
             print("Lost connection to control board.")
             self.is_control_conn = False
@@ -350,17 +404,10 @@ class VipperInterface(object):
         self.direction = 0
     
 
+    # mute/unmute the microphone and update the UI
     def mute_mic(self):
         _translate = QtCore.QCoreApplication.translate
         if self.muted:
-            if self.going_backward:
-                self.going_backward = False
-                self.btn_backward.setText(_translate("MainWindow", "Backward"))
-                self.btn_backward_m.setText(_translate("MainWindow", "Backward"))
-            elif self.going_forward:
-                self.going_forward = False
-                self.btn_forward.setText(_translate("MainWindow", "Forward"))
-                self.btn_forward_m.setText(_translate("MainWindow", "Forward"))
             self.muted = False
             self.btn_microphone.setText(_translate("MainWindow", "Mute"))
             self.btn_microphone_m.setText(_translate("MainWindow", "Mute"))
@@ -379,28 +426,36 @@ class VipperInterface(object):
             self.btn_forward_m.setDisabled(False)
             self.tabWidget.tabBar().setDisabled(False)
 
+    # function to run the mapping on a different thread
+    def mapping_loop(self):
+        while (True):
+            if (self.muted):
+                self.update_position()
+                time.sleep(0.1)
 
+
+    # Update the position of the head
     def update_position(self):
         # if it is going forward
         if self.direction == 1:
             rotation = self.calc_rotation_matrix(self.gyro_data[0], self.gyro_data[1], self.gyro_data[2])
+
             # calculate new velocities
             vx = self.velocity[0]
             vy = self.velocity[1]
             vz = self.velocity[2]
             self.update_mapping_plot()
-            self.velocity[2] = rotation[0][0] * vx + rotation[0][1] * vy + rotation[0][2] * vz
+            self.velocity[0] = rotation[0][0] * vx + rotation[0][1] * vy + rotation[0][2] * vz
             self.velocity[1] = rotation[1][0] * vx + rotation[1][1] * vy + rotation[1][2] * vz
-            self.velocity[0] = rotation[2][0] * vx + rotation[2][1] * vy + rotation[2][2] * vz
+            self.velocity[2] = rotation[2][0] * vx + rotation[2][1] * vy + rotation[2][2] * vz
+
             # calculate new positions
             delta_t = 0.1
             self.x_pos.append(self.x_pos[len(self.x_pos) - 1] + self.velocity[0] * delta_t)
             self.y_pos.append(self.y_pos[len(self.y_pos) - 1] + self.velocity[1] * delta_t)
             self.z_pos.append(self.z_pos[len(self.z_pos) - 1] + self.velocity[2] * delta_t)
-            #print("gyr:", self.gyro_data)
-            #print("pos:", self.velocity[0] * delta_t, self.velocity[1] * delta_t, self.velocity[2] * delta_t)
-            #print("vel:", self.velocity)
             self.update_mapping_plot()
+
         # if it is going backwards
         elif self.direction == 2:
             self.x_pos.pop()
@@ -434,6 +489,7 @@ class VipperInterface(object):
         return [[R11, R12, R13], [R21, R22, R23], [R31, R32, R33]]
 
 
+    # Update the plot that presents the mapping
     def update_mapping_plot(self):
         self.mapping_axes.clear()
         self.mapping_axes.set_xlabel("x (m)")
@@ -442,5 +498,29 @@ class VipperInterface(object):
         tip = int((len(self.x_pos) / 100)*90)
         self.mapping_axes.plot(self.x_pos[0:tip], self.y_pos[0:tip], self.z_pos[0:tip], color='limegreen', label='body')
         self.mapping_axes.plot(self.x_pos[tip-1:], self.y_pos[tip-1:], self.z_pos[tip-1:], color='crimson', label='head')
+        self.set_axes_equal()
         self.mapping_axes.legend()
         self.mapping_canvas.draw()
+
+
+    # Auxiliary function to make all the axis the same size in the mapping plot
+    def set_axes_equal(self):
+        x_limits = self.mapping_axes.get_xlim3d()
+        y_limits = self.mapping_axes.get_ylim3d()
+        z_limits = self.mapping_axes.get_zlim3d()
+
+        x_range = abs(x_limits[1] - x_limits[0])
+        x_middle = np.mean(x_limits)
+        y_range = abs(y_limits[1] - y_limits[0])
+        y_middle = np.mean(y_limits)
+        z_range = abs(z_limits[1] - z_limits[0])
+        z_middle = np.mean(z_limits)
+
+        # The plot bounding box is a sphere in the sense of the infinity
+        # norm, hence I call half the max range the plot radius.
+        plot_radius = 0.5*max([x_range, y_range, z_range])
+
+        self.mapping_axes.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
+        self.mapping_axes.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
+        self.mapping_axes.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
+

@@ -21,17 +21,17 @@ def sensor_board():
         data = None
         conn.settimeout(0)
         try:
-            data = conn.recv(16044)
-            file_write = wave.open('testestest.wav', 'wb')
-            file_write.setframerate(8000)
-            file_write.setnchannels(1)
-            file_write.setsampwidth(2)
-            file_write.writeframes(data)
-            file_write.close()
+            data = conn.recv(80044)
+            #file_write = wave.open('testestest.wav', 'wb')
+            #file_write.setframerate(8000)
+            #file_write.setnchannels(1)
+            #file_write.setsampwidth(2)
+            #file_write.writeframes(data)
+            #file_write.close()
             #output_stream.write(data)
             #print(data)
         except Exception as e :
-            print("sending data")
+            #print("sending data")
             #msg = [random.randint(0, 9), random.randint(0, 9), random.randint(0, 9), random.randint(0, 9), random.randint(0, 9), 
             #       random.randint(0, 9), random.randint(0, 9), random.randint(0, 9), random.randint(0, 9)]
             msg = b'\xff\x25\x00\x26\x00\x27\x00\x28\x00'

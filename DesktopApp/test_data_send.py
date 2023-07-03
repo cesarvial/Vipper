@@ -13,6 +13,7 @@ sensor_socket.connect(sensor_board_add)
 
 print("Connected")
 print("Total: " + str(len(final_data)))
+
 i = 0
 while (i*300 < 16088):
     begin = i*300
